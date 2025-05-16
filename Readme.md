@@ -81,7 +81,7 @@ devtools::install_github("microbiome/microbiome")
 1. *Clone this repository:*
 
    ```bash
-   git clone https://github.com/seuusuario/metadoon.git
+   git clone https://github.com/rdo-adan/metadoon.git
    cd metadoon
    ```
 
