@@ -69,11 +69,11 @@ def configure_execution():
     config_window.geometry("400x500")
     config_window.resizable(False, False)
 
-    # Frame principal que conterá a barra de rolagem e o conteúdo
+    # Main frame to contain the scrollbar and content
     main_frame = tk.Frame(config_window)
     main_frame.pack(fill="both", expand=True)
 
-    # Canvas para permitir a rolagem
+    # Canvas to allow scrolling
     canvas = tk.Canvas(main_frame)
     scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
     scrollable_frame = tk.Frame(canvas)
@@ -88,7 +88,7 @@ def configure_execution():
     canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
     canvas.configure(yscrollcommand=scrollbar.set)
 
-    # Funções internas
+    # Internal functions
     def toggle_default_chimera_db():
         if default_chimera_db_var.get() == "yes":
             default_chimera_button.config(state=tk.DISABLED)
@@ -154,12 +154,12 @@ def configure_execution():
         terminal_output.config(state='disabled')
 
 
-    # Configurações de interface gráfica dentro do frame rolável
+    # GUI configurations within the scrollable frame
     ttk.Label(scrollable_frame, text="Threads:").pack(pady=5)
-    opcoes = list(range(1, ContainerGeneral.n_threads + 1))
+    options = list(range(1, ContainerGeneral.n_threads + 1))
     treads = ttk.Combobox(scrollable_frame)
-    treads['values'] = opcoes
-    treads.set(opcoes[0])
+    treads['values'] = options
+    treads.set(options[0])
     treads.pack(pady=5)
 
     ttk.Label(scrollable_frame, text="Max Diffs (Merge):").pack(pady=5)
@@ -192,38 +192,37 @@ def configure_execution():
     strand_option.set(config_container.params.get("strand", "both"))
     strand_option.pack(pady=5)
 
-    # Opções de banco de dados Chimera
+    # Chimera database options
     default_chimera_db_var = tk.StringVar(value="yes")
     tk.Checkbutton(scrollable_frame, text="Use Default Chimera Database", variable=default_chimera_db_var, onvalue="yes", offvalue="no", command=toggle_default_chimera_db).pack(pady=5)
     default_chimera_button = tk.Button(scrollable_frame, text="Select Chimera Database", command=upload_chimera_db, state=tk.DISABLED)
     default_chimera_button.pack(pady=5)
 
-    # Opções de banco de dados 16S
+    # 16S database options
     ttk.Label(scrollable_frame, text="16S Database Options:").pack(pady=5)
     db_16s_combobox = ttk.Combobox(scrollable_frame, values=["Use RDP 16S Database", "Use Greengenes2 16S Database", "Use Custom 16S Database"])
     db_16s_combobox.set("Use RDP 16S Database")
     db_16s_combobox.pack(pady=5)
     db_16s_combobox.bind("<<ComboboxSelected>>", lambda e: select_16s_db())
-    #Upload metadata
+    # Upload metadata
     ttk.Label(scrollable_frame, text="Metadata File:").pack(pady=5)
     ttk.Label(scrollable_frame, text="Metadata file here", background="lightgreen", foreground="red").pack(padx=2,pady=2)
     metadata_entry = ttk.Button(scrollable_frame, text="Upload Metadata File", command=load_metadata)
     metadata_entry.pack(pady=30)
-    #Upload tree
+    # Upload tree
     ttk.Label(scrollable_frame, text="Tree (Optional):").pack(pady=5)
     ttk.Label(scrollable_frame, text="Tree here", background="lightgreen", foreground="red").pack(padx=2,pady=2)
     tree_entry = ttk.Button(scrollable_frame, text="Upload Tree File", command=load_tree)
     tree_entry.pack(pady=30)
-    # Botão para salvar os parâmetros configurados
+    # Button to save the configured parameters
     save_button = ttk.Button(scrollable_frame, text="Save Parameters", command=save_parameters)
     save_button.pack(pady=20)
 
-    # Configurar e exibir o canvas e a barra de rolagem
+    # Configure and display the canvas and scrollbar
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
 
-# Classe para armazenar arquivos carregados
-
+# Class to store loaded files
 class FileContainer:
     def __init__(self):
         self.files = []
@@ -240,7 +239,7 @@ container = FileContainer()
 
 class FileContainer:
     def __init__(self):
-        self.files = []  
+        self.files = []
         self.stats = {}
 
     def add_file(self, file_path):
@@ -255,35 +254,35 @@ def generate_stats():
     for file in container.files:
         if file not in container.stats:
             try:
-                terminal_output.insert(tk.END, f"Gerando estatísticas para {os.path.basename(file)}...\n")
+                terminal_output.insert(tk.END, f"Generating statistics for {os.path.basename(file)}...\n")
                 command = ["vsearch", "--fastq_eestats2", file, "--output", "-"]
                 result = subprocess.run(command, check=True, capture_output=True, text=True)
                 container.add_stats(file, result.stdout)
-                terminal_output.insert(tk.END, f"Estatísticas geradas para {os.path.basename(file)}\n")
+                terminal_output.insert(tk.END, f"Statistics generated for {os.path.basename(file)}\n")
             except FileNotFoundError:
-                terminal_output.insert(tk.END, "vsearch não encontrado no sistema.\n")
-                print("vsearch não encontrado no sistema.")
+                terminal_output.insert(tk.END, "vsearch not found in the system.\n")
+                print("vsearch not found in the system.")
             except CalledProcessError as e:
-                terminal_output.insert(tk.END, f"Erro ao calcular estatísticas para {file}:\n{e.stderr}\n")
-                print(f"Erro ao calcular estatísticas para {file}:\n{e.stderr}\n")
+                terminal_output.insert(tk.END, f"Error calculating statistics for {file}:\n{e.stderr}\n")
+                print(f"Error calculating statistics for {file}:\n{e.stderr}\n")
             except Exception as e:
-                terminal_output.insert(tk.END, f"Erro ao executar o vsearch: {e}\n{traceback.format_exc()}\n")
-                print(f"Erro ao executar o vsearch: {e}\n{traceback.format_exc()}\n")
+                terminal_output.insert(tk.END, f"Error executing vsearch: {e}\n{traceback.format_exc()}\n")
+                print(f"Error executing vsearch: {e}\n{traceback.format_exc()}\n")
     terminal_output.config(state='disabled')
 
 def display_stats():
     stats_text.delete(1.0, tk.END)
     for file in container.files:
         if file in container.stats:
-            stats_text.insert(tk.END, f"Estatísticas de {os.path.basename(file)}:\n")
+            stats_text.insert(tk.END, f"Statistics for {os.path.basename(file)}:\n")
             stats_text.insert(tk.END, f"{container.stats[file]}\n")
         else:
-            stats_text.insert(tk.END, f"Estatísticas para {file} não encontradas.\n")
+            stats_text.insert(tk.END, f"Statistics for {file} not found.\n")
 
 def open_file():
     import tkinter as tk
     files = filedialog.askopenfilenames(initialdir="/", title="Select Files",
-                                        filetypes=(("FASTQ Files", "*.fastq"), ("All Files", "*.*")))
+                                                           filetypes=(("FASTQ Files", "*.fastq"), ("All Files", "*.*")))
     for file in files:
         container.add_file(file)
         file_list.insert(tk.END, file)
@@ -296,201 +295,201 @@ def run_pipeline():
     try:
         try:
             terminal_output.config(state='normal')
-            terminal_output.insert(tk.END, "Iniciando o Pipeline...\n")
+            terminal_output.insert(tk.END, "Starting Pipeline...\n")
         except:
             terminal_output.insert(tk.END, " .\n")
 
-            # 1. Merge Pairs - Mesclando pares de leituras (R1 e R2)
-            files_names = []
-            merged_name_files = []
-            derep_files = []
-            clustered_OTUs = []
-            # Diretórios de saída para os diferentes estágios do pipeline
-            base_dir = os.getcwd()  # Use o diretório atual como base
-            merged_dir = os.path.join(base_dir, 'Merged')
-            filter_dir = os.path.join(base_dir, 'Filtered')
-            derep_dir = os.path.join(base_dir, 'Dereplicated')
-            otu_dir = os.path.join(base_dir, 'OTUs')
-            tax_dir = os.path.join(base_dir, 'Taxonomy')
-            db_dir = os.path.join(base_dir, 'DB')
+        # 1. Merge Pairs - Merging pairs of reads (R1 and R2)
+        files_names = []
+        merged_name_files = []
+        derep_files = []
+        clustered_OTUs = []
+        # Output directories for the different stages of the pipeline
+        base_dir = os.getcwd()  # Use the current directory as base
+        merged_dir = os.path.join(base_dir, 'Merged')
+        filter_dir = os.path.join(base_dir, 'Filtered')
+        derep_dir = os.path.join(base_dir, 'Dereplicated')
+        otu_dir = os.path.join(base_dir, 'OTUs')
+        tax_dir = os.path.join(base_dir, 'Taxonomy')
+        db_dir = os.path.join(base_dir, 'DB')
 
-            # Criação de diretórios conforme necessário
-            os.makedirs(merged_dir, exist_ok=True)
-            os.makedirs(filter_dir, exist_ok=True)
-            os.makedirs(derep_dir, exist_ok=True)
-            os.makedirs(otu_dir, exist_ok=True)
-            os.makedirs(tax_dir, exist_ok=True)
-            os.makedirs(db_dir, exist_ok=True)
+        # Creating directories as needed
+        os.makedirs(merged_dir, exist_ok=True)
+        os.makedirs(filter_dir, exist_ok=True)
+        os.makedirs(derep_dir, exist_ok=True)
+        os.makedirs(otu_dir, exist_ok=True)
+        os.makedirs(tax_dir, exist_ok=True)
+        os.makedirs(db_dir, exist_ok=True)
 
-            # Carregar parâmetros
-            params = config_container.load_params()
+        # Load parameters
+        params = config_container.load_params()
 
-            # Baixar banco de dados Chimera, se necessário
-            if params["use_default_chimera_db"]:
-                chimera_db = os.path.join(db_dir, 'rdp_gold.fa')
-                if not os.path.exists(chimera_db):
-                    terminal_output.insert(tk.END, "Downloading default Chimera DB...\n")
-                    os.system(f"wget http://drive5.com/uchime/rdp_gold.fa --no-check-certificate -O {chimera_db}")
-            else:
-                chimera_db = params["chimera_db"]
+        # Download Chimera database, if necessary
+        if params["use_default_chimera_db"]:
+            chimera_db = os.path.join(db_dir, 'rdp_gold.fa')
+            if not os.path.exists(chimera_db):
+                terminal_output.insert(tk.END, "Downloading default Chimera DB...\n")
+                os.system(f"wget http://drive5.com/uchime/rdp_gold.fa --no-check-certificate -O {chimera_db}")
+        else:
+            chimera_db = params["chimera_db"]
 
-            # Seleção do banco de dados 16S
-            if params["16s_db_option"] == "rdp":
-                sintax_db = os.path.join(db_dir, 'rdp_16s_v16.fa.gz')
-                if not os.path.exists(sintax_db):
-                    terminal_output.insert(tk.END, "Downloading RDP 16S Database...\n")
-                    os.system(f"wget https://www.drive5.com/sintax/rdp_16s_v16.fa.gz --no-check-certificate -O {sintax_db}")
-            elif params["16s_db_option"] == "greengenes2":
-                sintax_db = os.path.join(db_dir, '2024.09.seqs.fna.gz')
-                if not os.path.exists(sintax_db):
-                    terminal_output.insert(tk.END, "Downloading Greengenes2 16S Database...\n")
-                    os.system(f"wget http://ftp.microbio.me/greengenes_release/current/2024.09.seqs.fna.gz --no-check-certificate -O {sintax_db}")
-            else:
-                sintax_db = params["custom_16s_db"]
+        # Selection of the 16S database
+        if params["16s_db_option"] == "rdp":
+            sintax_db = os.path.join(db_dir, 'rdp_16s_v16.fa.gz')
+            if not os.path.exists(sintax_db):
+                terminal_output.insert(tk.END, "Downloading RDP 16S Database...\n")
+                os.system(f"wget https://www.drive5.com/sintax/rdp_16s_v16.fa.gz --no-check-certificate -O {sintax_db}")
+        elif params["16s_db_option"] == "greengenes2":
+            sintax_db = os.path.join(db_dir, '2024.09.seqs.fna.gz')
+            if not os.path.exists(sintax_db):
+                terminal_output.insert(tk.END, "Downloading Greengenes2 16S Database...\n")
+                os.system(f"wget http://ftp.microbio.me/greengenes_release/current/2024.09.seqs.fna.gz --no-check-certificate -O {sintax_db}")
+        else:
+            sintax_db = params["custom_16s_db"]
 
-           # 1. Mergin Reads Foward and Reverse
-            for file in container.files:
-                if "_R1_" in file:
-                    file_name = os.path.splitext(os.path.basename(file))[0].replace("_R1_", "_")
-                    reverse_file = file.replace('_R1_', '_R2_')
-                    merged_output = os.path.join(merged_dir, f"{file_name}_merged.fastq")
-                    cmd_merge = f"vsearch --fastq_mergepairs '{file}' --reverse '{reverse_file}' --fastq_maxdiffs 30 --fastq_maxdiffpct 10 --fastqout '{merged_output}' --relabel {file_name}_seq_ --fastq_eeout"
-                    terminal_output.insert(tk.END, f"\nMerging paired reads for {file_name} and {reverse_file}...\n")
-                    terminal_output.insert(tk.END, f"Runing:{cmd_merge}\n")
-                    os.system(cmd_merge)
-                    merged_name_files.append(merged_output)
-                    files_names.append(file_name)
-            for merged in merged_name_files:
-                print("Merged Files: \n")
-                print(merged)
-             # Criar diretório para arquivos combinados de amostras
-            os.makedirs("FullFiles", exist_ok=True)
-            subprocess.run(f"cat {merged_dir}/*_merged.fastq > FullFiles/all_single_sample.fastq", shell=True, check=True)
-            print("Arquivos combinados com sucesso.")
-            #filtrando as leituras
-            terminal_output.insert(tk.END, "\nFiltering reads...\n")
-            cmd_filter = f"vsearch --fastq_filter 'FullFiles/all_single_sample.fastq' --fastq_maxee {params['fastq_maxee']} --sizein --sizeout --fastq_maxns 0 --fastaout {filter_dir}/all_filtered.fasta --fasta_width 0"
-            terminal_output.insert(tk.END, f"Runing:\n\n {cmd_filter}\n")
-            os.system(cmd_filter)
-            terminal_output.insert(tk.END, "Reads filtered successfully.\n")
+        # 1. Merging Reads Forward and Reverse
+        for file in container.files:
+            if "_R1_" in file:
+                file_name = os.path.splitext(os.path.basename(file))[0].replace("_R1_", "_")
+                reverse_file = file.replace('_R1_', '_R2_')
+                merged_output = os.path.join(merged_dir, f"{file_name}_merged.fastq")
+                cmd_merge = f"vsearch --fastq_mergepairs '{file}' --reverse '{reverse_file}' --fastq_maxdiffs 30 --fastq_maxdiffpct 10 --fastqout '{merged_output}' --relabel {file_name}_seq_ --fastq_eeout"
+                terminal_output.insert(tk.END, f"\nMerging paired reads for {file_name} and {reverse_file}...\n")
+                terminal_output.insert(tk.END, f"Running:{cmd_merge}\n")
+                os.system(cmd_merge)
+                merged_name_files.append(merged_output)
+                files_names.append(file_name)
+        for merged in merged_name_files:
+            print("Merged Files: \n")
+            print(merged)
+        # Create directory for combined sample files
+        os.makedirs("FullFiles", exist_ok=True)
+        subprocess.run(f"cat {merged_dir}/*_merged.fastq > FullFiles/all_single_sample.fastq", shell=True, check=True)
+        print("Files combined successfully.")
+        # Filtering the reads
+        terminal_output.insert(tk.END, "\nFiltering reads...\n")
+        cmd_filter = f"vsearch --fastq_filter 'FullFiles/all_single_sample.fastq' --fastq_maxee {params['fastq_maxee']} --sizein --sizeout --fastq_maxns 0 --fastaout {filter_dir}/all_filtered.fasta --fasta_width 0"
+        terminal_output.insert(tk.END, f"Running:\n\n {cmd_filter}\n")
+        os.system(cmd_filter)
+        terminal_output.insert(tk.END, "Reads filtered successfully.\n")
 
-            # Mostrar contagem de sequências no nível da amostra
-            print("\nSequences count at sample level:\n")
-            os.system(f'cat {filter_dir}/all_filtered.fasta | grep -c "^>"')
+        # Show sequence count at sample level
+        print("\nSequences count at sample level:\n")
+        os.system(f'cat {filter_dir}/all_filtered.fasta | grep -c "^>"')
 
-            # Dereplicação adicional de todas as amostras combinadas
-            cmd_derep_all = f"vsearch --derep_fulllength '{filter_dir}/all_filtered.fasta' --threads {params['threads']} --sizein --sizeout --output {derep_dir}/all_derep.fasta"
-            os.system(cmd_derep_all)
+        # Further dereplication of all combined samples
+        cmd_derep_all = f"vsearch --derep_fulllength '{filter_dir}/all_filtered.fasta' --threads {params['threads']} --sizein --sizeout --output {derep_dir}/all_derep.fasta"
+        os.system(cmd_derep_all)
 
-            # Mostrar contagem de sequências desduplicadas
-            print("Unique dereplicated sequences: \n")
-            os.system(f"grep -c '^>' {derep_dir}/all_derep.fasta")
+        # Show count of dereplicated sequences
+        print("Unique dereplicated sequences: \n")
+        os.system(f"grep -c '^>' {derep_dir}/all_derep.fasta")
 
-            # Clusterização para criar centroids
-            cmd_cluster = f"vsearch --cluster_size '{derep_dir}/all_derep.fasta' --threads {params['threads']} --id {params['id']} --strand {params['strand']} --sizein --sizeout --centroids {otu_dir}/samples_centroids.fasta"
-            os.system(cmd_cluster)
+        # Clustering to create centroids
+        cmd_cluster = f"vsearch --cluster_size '{derep_dir}/all_derep.fasta' --threads {params['threads']} --id {params['id']} --strand {params['strand']} --sizein --sizeout --centroids {otu_dir}/samples_centroids.fasta"
+        os.system(cmd_cluster)
 
-            # Ordenar os centroids e remover singletons
-            cmd_sort = f"vsearch --sortbysize '{otu_dir}/samples_centroids.fasta' --threads {params['threads']} --sizein --sizeout --minsize {params['minuniquesize']} --output {otu_dir}/samples_centroids_sorted.fasta"
-            os.system(cmd_sort)
+        # Sort centroids and remove singletons
+        cmd_sort = f"vsearch --sortbysize '{otu_dir}/samples_centroids.fasta' --threads {params['threads']} --sizein --sizeout --minsize {params['minuniquesize']} --output {otu_dir}/samples_centroids_sorted.fasta"
+        os.system(cmd_sort)
 
-            print("Non-singleton clusters: ")
-            os.system(fr'grep -c "^>" {otu_dir}/samples_centroids_sorted.fasta')
+        print("Non-singleton clusters: ")
+        os.system(fr'grep -c "^>" {otu_dir}/samples_centroids_sorted.fasta')
 
-            # Detecção de chimeras de novo
-            cmd_uchime_denovo = f"vsearch --uchime_denovo '{otu_dir}/samples_centroids_sorted.fasta' --sizein --sizeout --fasta_width 0 --qmask none --nonchimeras {otu_dir}/denovo.nonchimeras.fasta"
-            os.system(cmd_uchime_denovo)
+        # De novo chimera detection
+        cmd_uchime_denovo = f"vsearch --uchime_denovo '{otu_dir}/samples_centroids_sorted.fasta' --sizein --sizeout --fasta_width 0 --qmask none --nonchimeras {otu_dir}/denovo.nonchimeras.fasta"
+        os.system(cmd_uchime_denovo)
 
-            print("Unique sequences after de novo chimera detection:")
-            os.system(fr'grep -c "^>" {otu_dir}/denovo.nonchimeras.fasta')
+        print("Unique sequences after de novo chimera detection:")
+        os.system(fr'grep -c "^>" {otu_dir}/denovo.nonchimeras.fasta')
 
-            # Detecção de chimeras baseada em referência
-            chimera_db = params["chimera_db"] if not params["use_default_chimera_db"] else os.path.join(db_dir, "rdp_gold.fa")
-            cmd_uchime_ref = f"vsearch --uchime_ref '{otu_dir}/denovo.nonchimeras.fasta' --threads {params['threads']} --db '{chimera_db}' --sizein --sizeout --fasta_width 0 --qmask none --dbmask none --nonchimeras {otu_dir}/nonchimeras.fasta"
-            os.system(cmd_uchime_ref)
+        # Reference-based chimera detection
+        chimera_db = params["chimera_db"] if not params["use_default_chimera_db"] else os.path.join(db_dir, "rdp_gold.fa")
+        cmd_uchime_ref = f"vsearch --uchime_ref '{otu_dir}/denovo.nonchimeras.fasta' --threads {params['threads']} --db '{chimera_db}' --sizein --sizeout --fasta_width 0 --qmask none --dbmask none --nonchimeras {otu_dir}/nonchimeras.fasta"
+        os.system(cmd_uchime_ref)
 
-            print("Unique sequences after reference-based chimera detection:")
-            os.system(f'grep -c "^>" {otu_dir}/nonchimeras.fasta')
+        print("Unique sequences after reference-based chimera detection:")
+        os.system(f'grep -c "^>" {otu_dir}/nonchimeras.fasta')
 
-            # Filtrar e relabelar OTUs
-            cmd_filter_otus = f"vsearch --fastx_filter '{otu_dir}/nonchimeras.fasta' --threads {params['threads']} --sizein --sizeout --fasta_width 0 --relabel OTU_ --fastaout {otu_dir}/otus.fasta"
-            os.system(cmd_filter_otus)
+        # Filter and relabel OTUs
+        cmd_filter_otus = f"vsearch --fastx_filter '{otu_dir}/nonchimeras.fasta' --threads {params['threads']} --sizein --sizeout --fasta_width 0 --relabel OTU_ --fastaout {otu_dir}/otus.fasta"
+        os.system(cmd_filter_otus)
 
-            # Criar tabela de OTUs
-            cmd_otu_table = f"vsearch --usearch_global '{filter_dir}/all_filtered.fasta' --threads {params['threads']} --db '{otu_dir}/otus.fasta' --id {params['id']} --strand {params['strand']} --otutabout {otu_dir}/otutab.txt"
-            os.system(cmd_otu_table)
+        # Create OTU table
+        cmd_otu_table = f"vsearch --usearch_global '{filter_dir}/all_filtered.fasta' --threads {params['threads']} --db '{otu_dir}/otus.fasta' --id {params['id']} --strand {params['strand']} --otutabout {otu_dir}/otutab.txt"
+        os.system(cmd_otu_table)
 
-            # Configurar base de dados SINTAX
-            sintax_db = {
-                "rdp": os.path.join(db_dir, "rdp_16s_v16.fa.gz"),
-                "greengenes2": os.path.join(db_dir, "2024.09.seqs.fna.gz"),
-                "custom": params["custom_16s_db"]
-            }[params["16s_db_option"]]
+        # Configure SINTAX database
+        sintax_db = {
+            "rdp": os.path.join(db_dir, "rdp_16s_v16.fa.gz"),
+            "greengenes2": os.path.join(db_dir, "2024.09.seqs.fna.gz"),
+            "custom": params["custom_16s_db"]
+        }[params["16s_db_option"]]
 
-            # Comando para análise de taxonomia usando SINTAX
-            cmd_sintax = f"vsearch --sintax '{otu_dir}/otus.fasta' --db '{sintax_db}' --tabbedout {tax_dir}/taxonomy.txt --sintax_cutoff {params['sintax_cutoff']} --strand {params['strand']}"
-            os.system(cmd_sintax)
+        # Command for taxonomy analysis using SINTAX
+        cmd_sintax = f"vsearch --sintax '{otu_dir}/otus.fasta' --db '{sintax_db}' --tabbedout {tax_dir}/taxonomy.txt --sintax_cutoff {params['sintax_cutoff']} --strand {params['strand']}"
+        os.system(cmd_sintax)
 
-            # Define o cabeçalho a ser adicionado
-            header = "#OTU ID\tKingdom\tPhylum\tClass\tOrder\tFamily\tGenus\tSpecies\t\n"
+        # Defines the header to be added
+        header = "#OTU ID\tKingdom\tPhylum\tClass\tOrder\tFamily\tGenus\tSpecies\t\n"
 
-            # Caminho do diretório contendo o arquivo taxonomy.txt
-            file_path = f"{tax_dir}/taxonomy.txt"
+        # Path to the directory containing the taxonomy.txt file
+        file_path = f"{tax_dir}/taxonomy.txt"
 
-            # Verificar se o arquivo existe
-            if os.path.exists(file_path):
-                # Lista para armazenar o conteúdo processado
-                processed_content = []
+        # Check if the file exists
+        if os.path.exists(file_path):
+            # List to store the processed content
+            processed_content = []
 
-                # Ler e processar o conteúdo do arquivo original
-                with open(file_path, 'r') as original_file:
-                    for line in original_file:
-                        # Divide a linha em colunas separadas por tabulação
-                        columns = line.strip().split('\t')
+            # Read and process the content of the original file
+            with open(file_path, 'r') as original_file:
+                for line in original_file:
+                    # Splits the line into tab-separated columns
+                    columns = line.strip().split('\t')
 
-                        # Remove tudo após o ponto e vírgula na primeira coluna
-                        columns[0] = re.sub(r";.*", "", columns[0])
+                    # Removes everything after the semicolon in the first column
+                    columns[0] = re.sub(r";.*", "", columns[0])
 
-                        # Mantém apenas as três primeiras colunas
-                        if len(columns) > 3:
-                            columns = columns[:3]
+                    # Keeps only the first three columns
+                    if len(columns) > 3:
+                        columns = columns[:3]
 
-                        # Substitui as vírgulas por tabulação e remove parênteses e seu conteúdo nas colunas após a primeira
-                        columns = [columns[0]] + [re.sub(r"\(.*?\)", "", col.replace(',', '\t').replace('+', '').replace('d:', '').replace('p:', '').replace('c:', '').replace('o:', '').replace('f:', '').replace('g:', '').replace('s:', '')) for col in columns[1:]]
+                    # Replaces commas with tabs and removes parentheses and their content in columns after the first
+                    columns = [columns[0]] + [re.sub(r"\(.*?\)", "", col.replace(',', '\t').replace('+', '').replace('d:', '').replace('p:', '').replace('c:', '').replace('o:', '').replace('f:', '').replace('g:', '').replace('s:', '')) for col in columns[1:]]
 
-                        # Junta as colunas em uma linha modificada e adiciona à lista de conteúdo processado
-                        processed_line = '\t'.join(columns) + '\n'
-                        processed_content.append(processed_line)
+                    # Joins the columns into a modified line and adds it to the processed content list
+                    processed_line = '\t'.join(columns) + '\n'
+                    processed_content.append(processed_line)
 
-                # Escrever o novo conteúdo com o cabeçalho adicionado
-                with open(file_path, 'w') as modified_file:
-                    modified_file.write(header)
-                    modified_file.writelines(processed_content)
+            # Write the new content with the header added
+            with open(file_path, 'w') as modified_file:
+                modified_file.write(header)
+                modified_file.writelines(processed_content)
 
-                print("Arquivo taxonomy.txt processado e cabeçalho adicionado com sucesso!")
+            print("taxonomy.txt file processed and header added successfully!")
 
-            else:
-                print(f"O arquivo {file_path} não foi encontrado.")
+        else:
+            print(f"The file {file_path} was not found.")
 
-            try:
-                subprocess.run(["Rscript", "Analise.R"], check=True, capture_output=True,
-                               text=True)  # executa o script de analise
-                terminal_output.insert(tk.END, "Análise concluída com sucesso.\n")
-            except subprocess.CalledProcessError as e:
-                terminal_output.insert(tk.END, f"Erro na execução da análise R:\n{e.stderr}\n")  # mostra erros detalhados
-                return  # interrompe a execução caso ocorra um erro
-            terminal_output.config(state='normal')
-            terminal_output.insert(tk.END, "Pipeline Starting...\n")
+        try:
+            subprocess.run(["Rscript", "Analise.R"], check=True, capture_output=True,
+                                                text=True)  # executes the analysis script
+            terminal_output.insert(tk.END, "Analysis completed successfully.\n")
+        except subprocess.CalledProcessError as e:
+            terminal_output.insert(tk.END, f"Error in R analysis execution:\n{e.stderr}\n")  # shows detailed errors
+            return  # stops execution if an error occurs
+        terminal_output.config(state='normal')
+        terminal_output.insert(tk.END, "Pipeline Starting...\n")
     except Exception as e:
-        terminal_output.insert(tk.END, f"Ocorreu um erro inesperado:\n")
-        terminal_output.insert(tk.END, f"{traceback.format_exc()}\n")  # Imprime o traceback completo
-        print(traceback.format_exc())  # Imprime o traceback no console também
+        terminal_output.insert(tk.END, f"An unexpected error occurred:\n")
+        terminal_output.insert(tk.END, f"{traceback.format_exc()}\n")  # Prints the full traceback
+        print(traceback.format_exc())  # Prints the traceback to the console as well
 
 
-#MAIN WINDOW
+# MAIN WINDOW
 root = tk.Tk()
 root.title("Metadoon Version 1.0")
-# Verifique se é Windows ou não
+# Check if it's Windows or not
 if root.tk.call('tk', 'windowingsystem') == 'win32':
     root.iconbitmap("Metadoon.ico")
 else:
@@ -512,7 +511,7 @@ menu.add_cascade(label="Tools", menu=tools_menu)
 tools_menu.add_command(label="Configure Execution", command=configure_execution)
 tools_menu.add_command(label="Run Pipeline", command=run_pipeline)
 
-# Dividindo a janela em duas colunas (Files e Estatísticas)
+# Dividing the window into two columns (Files and Statistics)
 file_label = tk.Label(root, text="FILES", bg="lightgreen", foreground="black")
 file_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
 

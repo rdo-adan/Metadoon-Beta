@@ -13,21 +13,21 @@ fi
 # Prefer mamba if available
 if command -v mamba &> /dev/null; then
     echo "[INFO] mamba detected. Creating environment with mamba..."
-    mamba env create -f metadoon_env.yaml
+    mamba env create -f metadoon_env.yaml -n metadoon
 else
     echo "[INFO] mamba not found. Using conda to create environment..."
-    conda env create -f metadoon_env.yaml
+    conda env create -f metadoon_env.yaml -n metadoon
 fi
 
-# Activate environment (requires conda hook for shell)
-eval "$(conda shell.bash hook)"
+# Activate environment (use correct shell hook for bash/zsh)
+eval "$(conda shell.$(basename $SHELL) hook)"
 conda activate metadoon
 
 echo "=== Step 2: Installing additional R packages from GitHub ==="
 
-# Install devtools if needed, then GitHub packages
-Rscript -e "if (!requireNamespace('devtools', quietly = TRUE)) install.packages('devtools', repos='http://cran.us.r-project.org')"
-Rscript -e "devtools::install_github('vlubitch/pairwiseAdonis')"
+# Install devtools if not present, then install GitHub packages
+Rscript -e "if (!requireNamespace('devtools', quietly = TRUE)) install.packages('devtools', repos='https://cloud.r-project.org')"
+Rscript -e "devtools::install_github('pmartinezarbizu/pairwiseAdonis/pairwiseAdonis')"
 Rscript -e "devtools::install_github('microbiome/microbiome')"
 
 echo "✅ Metadoon environment setup complete."
