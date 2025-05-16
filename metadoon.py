@@ -8,6 +8,14 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import traceback
 from PIL import ImageTk
+import shutil
+
+if shutil.which("vsearch") is None:
+    raise EnvironmentError("VSEARCH not found in system PATH. Please install it.")
+
+if shutil.which("Rscript") is None:
+    raise EnvironmentError("Rscript not found. Please install R.")
+
 
 class ContainerGeneral:
     metadata = []

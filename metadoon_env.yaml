@@ -1,0 +1,53 @@
+name: metadoon
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+channel_priority: strict
+
+dependencies:
+  # Python core
+  - python=3.12
+  - pip
+  - tk                   # Tkinter GUI support
+  - pillow               # Image handling
+  - wget                 # Download resources
+
+  # External tool
+  - vsearch              # FASTQ clustering and dereplication
+
+  # System-level libraries for R
+  - libcurl
+  - libxml2
+  - openssl
+  - gmp
+  - mpfr
+  - libuv
+  - make
+  - gcc
+  - gxx
+
+  # R base (compatible with Bioconductor 3.19)
+  - r-base=4.4.3
+
+  # R packages via Conda (CRAN)
+  - r-devtools
+  - r-remotes
+  - r-tidyverse
+  - r-reshape2
+  - r-igraph
+  - r-foreach
+  - r-lme4
+  - r-ggplot2
+  - r-ggpubr
+  - r-cowplot
+  - r-dplyr
+  - r-pheatmap
+  - r-viridis
+  - r-ape
+  - r-rprojroot
+
+  # R packages via Conda (Bioconductor)
+  - bioconductor-phyloseq
+  - bioconductor-deseq2
+  - bioconductor-scater
