@@ -63,7 +63,7 @@ devtools::install_github("microbiome/microbiome")
 | `libcurl`, `libxml2`                                     | *R package compilation*             |
 | `openssl`, `zlib`, `gcc`, `make`, `libuv`, `gmp`, `mpfr` | *System/compiler libraries*         |
 
-> *On macOS, ****XQuartz**** may be required for full R graphical support.*
+> *On macOS, **************XQuartz************** may be required for full R graphical support.*
 
 ---
 
@@ -81,7 +81,7 @@ devtools::install_github("microbiome/microbiome")
 1. *Clone this repository:*
 
    ```bash
-   git clone https://github.com/rdo-adan/metadoon.git
+   git clone https://github.com/seuusuario/metadoon.git
    cd metadoon
    ```
 
@@ -91,7 +91,13 @@ devtools::install_github("microbiome/microbiome")
    bash setup.sh
    ```
 
-3. *Run the GUI:*
+3. Activate the conda enviroment:
+
+   ```
+   conda activate metadoon
+   ```
+
+4. *Run the GUI:*
 
    ```bash
    python metadoon.py
