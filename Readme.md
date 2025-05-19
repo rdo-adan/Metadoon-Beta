@@ -103,11 +103,11 @@ devtools::install_github("microbiome/microbiome")
    python metadoon.py
    ```
 5. *Using Interface:*
-```{text}
-Upon launching the application, users are greeted with a clean dashboard divided into logical sections for data input, parameter configuration, and pipeline execution. Users begin by selecting the input FASTQ files(Upper Menu > Files > Upload Files) (paired-end) through a file browser. The interface provides a configuration screen (Configura Execution), and it shows fields for setting key parameters such as minimum read length, maximum expected errors (maxEE), clustering identity thresholds, and selection of chimera detection and taxonomic reference databases. Each field includes tooltips to assist users in understanding the function of each parameter.
 
-Once all inputs and configurations are set, the user can initiate the pipeline by clicking the “Run Pipeline” button. The interface provides real-time status updates and alerts in a console panel, displaying each processing stage as it is executed—from merging and filtering reads to OTU clustering and diversity analysis. Upon completion, output folders are automatically created and populated with organized results, including quality plots, taxonomic bar charts, core microbiome heatmaps, and diversity metrics. These features make Metadoon accessible to researchers with limited command-line experience while preserving analytical transparency and control.
-```
+<p>Upon launching the application, users are greeted with a clean dashboard divided into logical sections for data input, parameter configuration, and pipeline execution. Users begin by selecting the input FASTQ files(Upper Menu > Files > Upload Files) (paired-end) through a file browser. The interface provides a configuration screen (Configura Execution), and it shows fields for setting key parameters such as minimum read length, maximum expected errors (maxEE), clustering identity thresholds, and selection of chimera detection and taxonomic reference databases. Each field includes tooltips to assist users in understanding the function of each parameter.
+
+Once all inputs and configurations are set, the user can initiate the pipeline by clicking the “Run Pipeline” button. The interface provides real-time status updates and alerts in a console panel, displaying each processing stage as it is executed—from merging and filtering reads to OTU clustering and diversity analysis. Upon completion, output folders are automatically created and populated with organized results, including quality plots, taxonomic bar charts, core microbiome heatmaps, and diversity metrics. These features make Metadoon accessible to researchers with limited command-line experience while preserving analytical transparency and control.</p>
+
 ---
 
 ## *📁 Project Structure*
