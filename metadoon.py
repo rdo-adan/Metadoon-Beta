@@ -484,6 +484,78 @@ def run_pipeline():
         terminal_output.insert(tk.END, f"An unexpected error occurred:\n")
         terminal_output.insert(tk.END, f"{traceback.format_exc()}\n")  # Prints the full traceback
         print(traceback.format_exc())  # Prints the traceback to the console as well
+def Generate_report():
+    try:
+        # Final Report
+        result = subprocess.run(
+            ["Rscript", "generate_report.R"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        terminal_output.insert(tk.END, "Report Generated Successfully!\n")
+        terminal_output.insert(tk.END, result.stdout + "\n")  # opcional: exibe a saída padrão do R
+    except subprocess.CalledProcessError as e:
+        terminal_output.insert(tk.END, f"Error in Generating the Final Report:\n{e.stderr}\n")
+    
+    terminal_output.config(state='normal')
+
+def save_analysis_results():
+    # Ask user to select the destination folder
+    destination = filedialog.askdirectory(title="Select destination folder to save analysis results")
+
+    if not destination:
+        terminal_output.insert(tk.END, "Saving canceled by user.\n")
+        return
+
+    # Get current working directory (root of the project)
+    current_dir = os.getcwd()
+    terminal_output.insert(tk.END, f"Saving results from: {current_dir}\n")
+
+    # Get all folders in the current directory
+    folders_to_copy = [f for f in os.listdir(current_dir) if os.path.isdir(f)]
+
+    # Copy each folder to the selected destination
+    for folder in folders_to_copy:
+        src = os.path.join(current_dir, folder)
+        dst = os.path.join(destination, folder)
+        try:
+            if os.path.exists(dst):
+                shutil.rmtree(dst)  # Remove if already exists
+            shutil.copytree(src, dst)
+            terminal_output.insert(tk.END, f"Copied folder: {folder}\n")
+        except Exception as e:
+            terminal_output.insert(tk.END, f"Error copying {folder}: {e}\n")
+
+    # Copy specific important files (if they exist)
+    for file_name in ["Rplots.pdf", "pipeline_params.json"]:
+        file_path = os.path.join(current_dir, file_name)
+        if os.path.exists(file_path):
+            try:
+                shutil.copy(file_path, destination)
+                terminal_output.insert(tk.END, f"Copied file: {file_name}\n")
+            except Exception as e:
+                terminal_output.insert(tk.END, f"Error copying {file_name}: {e}\n")
+
+    # ✅ Cleanup: remove original folders and files only if saving was successful
+    for folder in folders_to_copy:
+        src = os.path.join(current_dir, folder)
+        try:
+            shutil.rmtree(src)
+            terminal_output.insert(tk.END, f"Removed original folder: {folder}\n")
+        except Exception as e:
+            terminal_output.insert(tk.END, f"Error removing folder {folder}: {e}\n")
+
+    for file_name in ["Rplots.pdf", "pipeline_params.json"]:
+        file_path = os.path.join(current_dir, file_name)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                terminal_output.insert(tk.END, f"Removed original file: {file_name}\n")
+            except Exception as e:
+                terminal_output.insert(tk.END, f"Error removing file {file_name}: {e}\n")
+
+    terminal_output.insert(tk.END, "✅ Results copied and original files cleaned up successfully.\n")
 
 
 # MAIN WINDOW
@@ -510,6 +582,8 @@ tools_menu = tk.Menu(menu, tearoff=0)
 menu.add_cascade(label="Tools", menu=tools_menu)
 tools_menu.add_command(label="Configure Execution", command=configure_execution)
 tools_menu.add_command(label="Run Pipeline", command=run_pipeline)
+tools_menu.add_command(label="Generate Final Report", command=Generate_report)  # ⬅️ NOVO ITEM
+tools_menu.add_command(label="Save and Clean Results", command=save_analysis_results)
 
 # Dividing the window into two columns (Files and Statistics)
 file_label = tk.Label(root, text="FILES", bg="lightgreen", foreground="black")

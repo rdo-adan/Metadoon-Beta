@@ -44,6 +44,10 @@ dependencies:
   - r-viridis
   - r-ape
   - r-rprojroot
+  - r-knitr
+  - r-rmarkdown
+  - r-tinytex
+
 
   # R packages via Conda (Bioconductor)
   - bioconductor-phyloseq
