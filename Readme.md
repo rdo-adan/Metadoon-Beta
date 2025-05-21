@@ -78,6 +78,8 @@ devtools::install_github("microbiome/microbiome")
 
 ## *🚀 Installation & Usage*
 
+> ⚠️ *Note: All required folders such as `Output/`, `Metadata/`, `OTUs/`, `Taxonomy/`, and `Tree File/` are automatically created during the pipeline execution if they do not exist.*
+
 1. *Clone this repository:*
 
    ```bash
@@ -110,12 +112,22 @@ devtools::install_github("microbiome/microbiome")
 ```
 Metadoon/
 │
-├── metadoon.py             # Main GUI
-├── Analise.R               # R script for data analysis
-├── setup.sh                # Environment setup script
-├── metadoon_env.yaml       # Conda environment file
-├── *.png, *.ico, *.icns    # Icons and GUI assets
-└── Output/, Metadata/, OTUs/, Taxonomy/, Tree File/
+├── metadoon.py               # Main GUI script
+├── Analise.R                  # R script for data analysis
+├── generate_report.R          # Script to generate the final report
+├── Metadoon_Report.Rmd        # RMarkdown template for the report
+├── Metadoon-Beta.Rproj        # RStudio project file
+├── metadoon_env.yaml          # Conda environment file
+├── setup.sh                   # Environment setup script
+├── LICENSE                    # License file
+├── Readme.md                  # Project documentation
+├── *.png, *.ico, *.icns       # Icons and GUI assets
+│
+├── Metadata/                  # Folder for metadata files
+├── OTUs/                      # Folder for OTU tables
+├── Taxonomy/                  # Folder for taxonomy files
+├── Tree File/                 # Folder for phylogenetic tree files
+├── Output/                    # Folder for generated results, plots, reports, tables, and the final report (HTML)
 ```
 
 ---
@@ -136,7 +148,8 @@ Metadoon/
   - The **Output/** folder (containing all plots, tables, reports)
   - The parameter file **pipeline_params.json**
   - The **Rplots.pdf** file if generated
-- Once copied, the Output folder in the project will be cleared.
+  - The **final report in HTML format**
+- Once copied, the Output folder inside the project will be cleared.
 
 ---
 
