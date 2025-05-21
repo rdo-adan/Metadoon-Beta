@@ -1,0 +1,378 @@
+---
+title: "Metadoon Analysis Report"
+output: html_document
+fontsize: 11pt
+geometry: margin=1in
+---
+```{r setup, include=FALSE}
+library(phyloseq)
+library(vegan)
+library(ggplot2)
+library(ggpubr)
+library(cowplot)
+library(dplyr)
+library(DESeq2)
+library(scater)
+library(rprojroot)
+library(pairwiseAdonis)
+library(pheatmap)
+library(viridis)
+library(ape)
+library(microbiome)
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+script_dir <- find_root(has_file("Analise.R"))
+output_dir <- file.path(script_dir, "Output")
+if (!dir.exists(output_dir)) dir.create(output_dir)
+```
+```{r load-data}
+otu_file <- file.path(script_dir, "OTUs/otutab.txt")
+taxonomy_file <- file.path(script_dir, "Taxonomy/taxonomy.txt")
+metadata_dir <- file.path(script_dir, "Metadata File")
+tree_file_path <- file.path(script_dir, "Tree File/tree.nwk")
+
+lines <- readLines(otu_file)
+lines[1] <- gsub("^#", "", lines[1])
+temp_file <- tempfile()
+writeLines(lines, temp_file)
+tabBIN <- as.matrix(read.table(temp_file, header = TRUE, sep = "\t", row.names = 1, check.names = FALSE))
+
+tabTax <- as.matrix(read.csv(taxonomy_file, header = TRUE, row.names = 1, sep = "\t"))
+
+metadata_files <- list.files(path = metadata_dir, pattern = "\\.tsv$|\\.csv$", full.names = TRUE)
+sep <- ifelse(grepl("\\.tsv$", metadata_files[1]), "\t", ",")
+metadataTab <- read.csv(metadata_files[1], header = TRUE, row.names = 1, sep = sep)
+
+if (file.exists(tree_file_path)) {
+  Arv <- read.tree(tree_file_path)
+} else {
+  Arv <- NULL
+}
+
+if (is.null(Arv)) {
+  ps <- phyloseq(
+    otu_table(tabBIN, taxa_are_rows = TRUE),
+    tax_table(tabTax),
+    sample_data(metadataTab)
+  )
+} else {
+  ps <- phyloseq(
+    otu_table(tabBIN, taxa_are_rows = TRUE),
+    tax_table(tabTax),
+    sample_data(metadataTab),
+    phy_tree(Arv)
+  )
+}
+ps
+```
+
+
+# Rarefaction Curve
+
+The rarefaction curve provides insight into the richness of microbial communities across samples. It estimates the number of observed species (or OTUs) as a function of the sequencing depth. A plateau indicates sufficient sampling depth.
+
+```{r rarefaction-curve}
+# Extract OTU table as matrix
+otu <- as(otu_table(ps), "matrix")
+
+# Ensure taxa are in rows
+if (!taxa_are_rows(ps)) {
+  otu <- t(otu)
+}
+
+# Plot rarefaction curve
+vegan::rarecurve(otu, step = 100, cex = 0.6, label = FALSE)
+title("Rarefaction Curve")
+```
+
+**Interpretation**: - Samples that plateau have been sequenced to near saturation. - Curves that rise sharply with no sign of plateau suggest under-sampling.
+
+# Relative abundance:
+
+Relative abundance analysis illustrates the proportional representation of microbial taxa within each sample, typically aggregated at different taxonomic levels (e.g., Phylum, Genus). These stacked bar plots help visualize shifts in the dominant microbial community composition across experimental groups or conditions.
+
+```{r abundance-plots, results='hide'}
+save_plot <- function(plot, filename, width = 12, height = 8) {
+  ggsave(filename = file.path(output_dir, filename), plot = plot, width = width, height = height, dpi = 300, bg = "white")
+}
+
+plot_abundance <- function(ps, taxrank, top_n = 15) {
+  ps_tax <- tax_glom(ps, taxrank = taxrank)
+  ps_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
+  taxa_sums <- taxa_sums(ps_rel)
+  top_taxa <- names(sort(taxa_sums, decreasing = TRUE)[1:top_n])
+  tax_table(ps_rel)[!(taxa_names(ps_rel) %in% top_taxa), taxrank] <- "Others"
+  p <- ggplot(psmelt(ps_rel), aes(x = Sample, y = Abundance, fill = !!sym(taxrank))) +
+    geom_bar(stat = "identity") +
+    labs(title = paste("Relative Abundance by", taxrank), x = "Sample", y = "Relative Abundance") +
+    theme_minimal(base_size = 14) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  save_plot(p, paste0("abundance_", taxrank, ".png"), width = 14, height = 8)
+  print(p)
+}
+
+for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
+  plot_abundance(ps, rank, top_n = 15)
+}
+```
+
+-   Each bar represents the composition of one sample, with colors indicating the relative proportions of taxa.
+
+-   Taxa with higher proportions (larger segments) dominate the microbial community.
+
+-   Group-wise comparisons allow identification of patterns or shifts in community structure (e.g., enrichment or depletion of specific taxa).
+
+-   The "Others" category groups less abundant taxa to reduce noise and improve clarity.
+
+# Core-Microbiome:
+
+The core microbiome refers to the set of microbial taxa that are consistently detected across a defined proportion of samples within a group. Identifying core taxa is essential for understanding the stable and potentially functionally important members of the microbial community. In the heatmaps below, prevalence (frequency of detection) and detection thresholds (minimum relative abundance) are used to determine which taxa are considered part of the core microbiome.
+
+```{r core-heatmaps, results='hide'}
+plot_core_heatmap <- function(ps, taxrank, top_n = 30) {
+  ps_tax <- tax_glom(ps, taxrank)
+  ps_tax_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
+  prev_table <- microbiome::prevalence(ps_tax_rel)
+  top_taxa <- names(sort(prev_table, decreasing = TRUE)[1:top_n])
+  ps_top_taxa <- prune_taxa(top_taxa, ps_tax_rel)
+  tax_table(ps_top_taxa)[, taxrank] <- as.character(tax_table(ps_top_taxa)[, taxrank])
+  taxa_names(ps_top_taxa) <- tax_table(ps_top_taxa)[, taxrank]
+  p <- plot_core(ps_top_taxa, plot.type = "heatmap",
+                 prevalences = seq(.05, 1, .05),
+                 detections = 10^seq(log10(1e-4), log10(.2), length = 10),
+                 min.prevalence = 0.5) +
+    xlab("Detection Threshold (Relative Abundance (%))") +
+    ylab(taxrank) +
+    scale_fill_viridis() +
+    theme_minimal() +
+    ggtitle(paste("Core Microbiome at", taxrank, "Level"))
+  save_plot(p, paste0("core_microbiome_heatmap_", taxrank, ".png"), width = 16, height = 10)
+  print(p)
+}
+
+for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
+  plot_core_heatmap(ps, rank, top_n = 30)
+}
+```
+
+-   Rows represent taxa and columns represent detection thresholds.
+
+-   Colors indicate the proportion of samples in which the taxon is detected at or above the threshold.
+
+-   Taxa with high prevalence across multiple thresholds are strong candidates for being part of the core microbiome.
+
+-   Patterns can be compared across taxonomic levels (e.g., Phylum vs. Genus) for broader or finer biological insights.
+
+# Alpha Diversity:
+
+Alpha diversity metrics quantify the diversity within a single microbial community (sample). They describe both richness (number of taxa) and evenness (how uniformly the taxa are distributed). Commonly used indices include Observed, Chao1, ACE (richness estimators), Shannon (balance between richness and evenness), and Simpson (probability that two individuals randomly selected belong to the same species).
+
+```{r alpha-diversity}
+# Alpha Diversity Plot — Um gráfico por índice, contendo todas as amostras
+
+plot_alpha_diversity <- function(ps) {
+  
+  # Calcula diversidade alfa por amostra
+  alpha_div <- estimate_richness(ps, measures = c("Shannon", "Simpson", "Chao1", "ACE", "Observed"))
+  alpha_div$SampleID <- rownames(alpha_div)
+  
+  # Verifica se SampleID está correto
+  if (any(is.na(alpha_div$SampleID))) {
+    stop("SampleID contains NA!")
+  }
+  
+  indices <- c("Shannon", "Simpson", "Chao1", "ACE", "Observed")
+  
+  for (index in indices) {
+    
+    plot_df <- data.frame(
+      Sample = alpha_div$SampleID,
+      Diversity = alpha_div[[index]]
+    )
+    
+    p <- ggplot(plot_df, aes(x = Sample, y = Diversity)) +
+      geom_point(size = 3, color = "steelblue") +
+      geom_line(group = 1, color = "gray")+
+      labs(title = paste("Alpha Diversity -", index),
+           x = "SampleID",
+           y = index) +
+      theme_minimal(base_size = 14) +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    
+    ggsave(filename = paste0("Output/alpha_diversity_", index, ".png"),
+           plot = p, width = 10, height = 6, dpi = 600, bg = "white")
+    
+    print(p)
+  }
+}
+plot_alpha_diversity(ps)
+```
+
+-   **Observed**: the raw count of taxa detected in each sample.
+-   **Chao1**: an estimator that infers the total richness by accounting for rare taxa.
+-   **se.chao1**: the standard error of the Chao1 estimate.
+-   **ACE**: another estimator of species richness using abundance-based coverage.
+-   **se.ACE**: the standard error associated with the ACE estimate.
+-   **Shannon**: considers both richness and evenness; higher values indicate more balanced and diverse communities.
+-   **Simpson**: emphasizes evenness and dominance; lower values reflect higher diversity (i.e., less dominance by few taxa).
+
+These metrics are useful to compare how diverse microbial communities are across treatments or conditions. Large differences in alpha diversity may indicate ecological responses to environmental or experimental variables. to compare how diverse microbial communities are across treatments or conditions. Large differences in alpha diversity may indicate ecological responses to environmental or experimental variables.
+
+Use this analysis to pinpoint key taxa that respond to experimental treatments or environmental gradients.
+
+# Beta Diversity:
+
+Beta diversity evaluates the differences in microbial composition between samples or groups. It measures the extent to which communities share similar taxa and relative abundances. NMDS (Non-metric Multidimensional Scaling) is a common ordination method used to visualize beta diversity.
+## NMDS:
+```{r beta-nmds}
+# NMDS plot function
+plot_beta_diversity <- function(ps, metadata_column) {
+  ps_dist <- phyloseq::distance(ps, method = "bray")
+  ord_nmds <- metaMDS(ps_dist, k = 2, trymax = 20)
+  ord_data <- data.frame(ord_nmds$points)
+  ord_data$SampleID <- rownames(ord_data)
+  ord_data$Group <- sample_data(ps)[[metadata_column]]
+  
+  p <- ggplot(ord_data, aes(x = MDS1, y = MDS2, color = Group, label = SampleID)) +
+    geom_point(size = 3) +
+    geom_text(vjust = -0.5, hjust = 0.5) +
+    stat_ellipse() +
+    labs(title = paste("NMDS -", metadata_column), x = "NMDS1", y = "NMDS2") +
+    theme_minimal()
+  ggsave(file.path(output_dir, paste0("ordination_NMDS_", metadata_column, ".png")), p, dpi = 600)
+  print(p)
+}
+
+for (metadata_column in colnames(sample_data(ps))) {
+  plot_beta_diversity(ps, metadata_column)
+}
+```
+## PCoA:
+```{r beta-pcoa}
+# PCoA
+for (metadata_column in colnames(sample_data(ps))) {
+  dist <- phyloseq::distance(ps, method = "bray")
+  ord <- ape::pcoa(as.matrix(dist))
+  ord_df <- data.frame(ord$vectors[, 1:2])
+  colnames(ord_df) <- c("PCoA1", "PCoA2")
+  ord_df$SampleID <- rownames(ord_df)
+  ord_df$Group <- sample_data(ps)[[metadata_column]]
+  p <- ggplot(ord_df, aes(x = PCoA1, y = PCoA2, color = Group, label = SampleID)) +
+    geom_point(size = 3) +
+    geom_text(vjust = -0.5, hjust = 0.5) +
+    stat_ellipse() +
+    labs(title = paste("PCoA -", metadata_column), x = "PCoA1", y = "PCoA2") +
+    theme_minimal()
+  ggsave(file.path(output_dir, paste0("ordination_PCoA_", metadata_column, ".png")), p, dpi = 600)
+  print(p)
+}
+```
+
+**Interpretation**: - Each point represents a microbial community from a sample. - Samples closer together are more similar in composition. - Ellipses indicate clustering patterns by metadata group. - **NMDS** (Non-metric Multidimensional Scaling): focuses on rank-order distances; does not preserve exact distances but reveals relative similarities. Good for complex, non-linear relationships. - **PCoA** (Principal Coordinates Analysis): preserves actual distances as well as possible; useful when understanding variance structure of dissimilarity matrix.
+
+# Permanova:
+
+PERMANOVA is a non-parametric method used to test whether the centroids (i.e., average community compositions) of different groups differ significantly. It uses permutations on a distance matrix to assess whether the observed differences between groups are greater than expected by chance.
+
+```{r permanova}
+run_permanova <- function(ps, metadata_column) {
+  metadata <- as(sample_data(ps), "data.frame")
+  dist_bc <- phyloseq::distance(ps, method = "bray")
+  if (metadata_column %in% colnames(metadata)) {
+    formula <- as.formula(paste("dist_bc ~", metadata_column))
+    permanova_result <- adonis2(formula, data = metadata, permutations = 999)
+    result_file <- file.path(output_dir, paste0("permanova_result_", metadata_column, ".txt"))
+    write.table(permanova_result, file = result_file, sep = "\t", col.names = NA, quote = FALSE)
+    print(permanova_result)
+  }
+}
+
+for (metadata_column in colnames(sample_data(ps))) {
+  run_permanova(ps, metadata_column)
+}
+```
+
+**Interpretation**: - The pseudo-F statistic indicates the ratio of between-group to within-group variance. - A low p-value (\< 0.05) suggests significant differences in community composition between groups. - PERMANOVA assumes similar dispersion among groups; pair this analysis with a check for homogeneity of dispersion (e.g., using betadisper).
+
+# Deseq2:
+
+DESeq2 identifies taxa that are differentially abundant between sample groups based on count data. It models the counts using a negative binomial distribution and performs statistical testing to identify significant log2 fold changes between conditions.
+
+```{r deseq2-analysis}
+meta_columns <- colnames(sample_data(ps))
+
+for (meta_var in meta_columns) {
+  
+  var_values <- sample_data(ps)[[meta_var]]
+  
+  # ✅ Verifica se é categórico (fator ou string com poucos níveis)
+  if (is.factor(var_values) || (is.character(var_values) && length(unique(var_values)) < nrow(sample_data(ps)))) {
+    
+    message(paste0("Running DESeq2 for metadata variable: ", meta_var))
+    
+    # Prepara o DESeq2
+    formula_deseq <- as.formula(paste("~", meta_var))
+    dds <- phyloseq_to_deseq2(ps, formula_deseq)
+    
+    # Executa DESeq2
+    dds <- DESeq(dds, test = "Wald", fitType = "parametric")
+    
+    # Extrai resultados
+    res <- results(dds, cooksCutoff = FALSE)
+    res <- res[order(res$padj, na.last = NA), ]
+    res_sig <- subset(res, padj < 0.05)
+    
+    # Salva os resultados
+    write.csv(as.data.frame(res), file.path(output_dir, paste0("DESeq2_all_results_", meta_var, ".csv")))
+    write.csv(as.data.frame(res_sig), file.path(output_dir, paste0("DESeq2_significant_results_", meta_var, ".csv")))
+    
+    # Taxonomia (opcional)
+    if (!is.null(tax_table(ps, errorIfNULL = FALSE)) & nrow(res_sig) > 0) {
+      taxa <- as(tax_table(ps)[rownames(res_sig), ], "matrix")
+      sigtab <- cbind(as(res_sig, "data.frame"), taxa)
+    } else {
+      sigtab <- as.data.frame(res_sig)
+    }
+    
+    # Gráfico se houver taxa significante
+    if (nrow(sigtab) > 0) {
+      sigtab$taxa <- rownames(sigtab)
+      
+      p <- ggplot(sigtab, aes(x = reorder(taxa, log2FoldChange), y = log2FoldChange, fill = log2FoldChange > 0)) +
+        geom_bar(stat = "identity") +
+        coord_flip() +
+        labs(title = paste("Differential Abundance (", meta_var, ")", sep = ""),
+             x = "Taxa", y = "Log2 Fold Change") +
+        theme_minimal() +
+        scale_fill_manual(values = c("red", "blue"))
+      
+      ggsave(file.path(output_dir, paste0("deseq2_differential_taxa_", meta_var, ".png")),
+             plot = p, width = 10, height = 8, dpi = 600)
+      
+      print(p)
+    } else {
+      message(paste0("No significantly different taxa found for ", meta_var, "."))
+    }
+    
+  } else {
+    message(paste0("Skipping variable '", meta_var, "' (not categorical)."))
+  }
+}
+
+#deseq2 results:
+deseq_files <- list.files(path = "Output", pattern = "^DESeq2_.*\\.csv$", full.names = TRUE)
+for (file in deseq_files) {
+  
+  cat("###", basename(file), "\n\n")  # 🔥 Cria um título no relatório
+  
+  deseq_table <- read.csv(file)
+  
+  knitr::kable(head(deseq_table, 10), caption = paste("Top 10 entries from", basename(file)))
+  
+}
+
+
+
+```
+
+**Interpretation**: - Each bar represents a taxon with significant differential abundance between sample groups. - log2 Fold Change \> 0: taxon is more abundant in the reference condition. - log2 Fold Change \< 0: taxon is more abundant in the comparison condition. - padj \< 0.05: statistically significant after multiple testing correction.

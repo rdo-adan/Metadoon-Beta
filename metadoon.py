@@ -1,3 +1,4 @@
+import platform
 import json
 import os
 import re
@@ -528,7 +529,7 @@ def save_analysis_results():
             terminal_output.insert(tk.END, f"Error copying {folder}: {e}\n")
 
     # Copy specific important files (if they exist)
-    for file_name in ["Rplots.pdf", "pipeline_params.json"]:
+    for file_name in ["Rplots.pdf", "pipeline_params.json", "Metadoon_Report.html"]:
         file_path = os.path.join(current_dir, file_name)
         if os.path.exists(file_path):
             try:
@@ -546,7 +547,7 @@ def save_analysis_results():
         except Exception as e:
             terminal_output.insert(tk.END, f"Error removing folder {folder}: {e}\n")
 
-    for file_name in ["Rplots.pdf", "pipeline_params.json"]:
+    for file_name in ["Rplots.pdf", "pipeline_params.json", "Metadoon_Report.html"]:
         file_path = os.path.join(current_dir, file_name)
         if os.path.exists(file_path):
             try:
@@ -561,12 +562,20 @@ def save_analysis_results():
 # MAIN WINDOW
 root = tk.Tk()
 root.title("Metadoon Version 1.0")
-# Check if it's Windows or not
-if root.tk.call('tk', 'windowingsystem') == 'win32':
+
+# 🚀 Detecta sistema operacional e define o ícone adequado
+system_os = platform.system()
+
+if system_os == "Windows":
     root.iconbitmap("Metadoon.ico")
-else:
-    img = ImageTk.PhotoImage(file="./Metadoon.png")
+elif system_os == "Darwin":  # macOS
+    img = ImageTk.PhotoImage(file="Metadoon.icns")
     root.iconphoto(True, img)
+else:  # Linux e outros
+    img = ImageTk.PhotoImage(file="Metadoon.png")
+    root.iconphoto(True, img)
+
+# ✅ Continua seu código normalmente
 container = FileContainer()
 
 # Menus
@@ -582,7 +591,7 @@ tools_menu = tk.Menu(menu, tearoff=0)
 menu.add_cascade(label="Tools", menu=tools_menu)
 tools_menu.add_command(label="Configure Execution", command=configure_execution)
 tools_menu.add_command(label="Run Pipeline", command=run_pipeline)
-tools_menu.add_command(label="Generate Final Report", command=Generate_report)  # ⬅️ NOVO ITEM
+tools_menu.add_command(label="Generate Final Report", command=Generate_report)
 tools_menu.add_command(label="Save and Clean Results", command=save_analysis_results)
 
 # Dividing the window into two columns (Files and Statistics)

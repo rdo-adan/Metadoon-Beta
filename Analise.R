@@ -79,6 +79,23 @@ save_plot <- function(plot, filename, width = 12, height = 8) {
   ggsave(filename = file.path(output_dir, filename), plot = plot, width = width, height = height, dpi = 300, bg = "white")
 }
 
+
+#Rarefaction
+# Extract OTU table as matrix
+otu <- as(otu_table(ps), "matrix")
+
+# Ensure taxa are in rows
+if (!taxa_are_rows(ps)) {
+  otu <- t(otu)
+}
+
+# Plot rarefaction curve
+vegan::rarecurve(otu, step = 100, cex = 0.6, label = FALSE)
+title("Rarefaction Curve")
+
+
+
+
 # Função para plotar abundância relativa
 plot_abundance <- function(ps, taxrank, top_n = 15) {
   ps_tax <- tax_glom(ps, taxrank = taxrank)
@@ -198,23 +215,55 @@ for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
   plot_core_heatmap(ps, rank, top_n = 30)
 }
 
-# Alpha diversity
-plot_individual_alpha_diversity <- function(ps) {
+alpha_div <- estimate_richness(ps)
+head(alpha_div)
+alpha_merged <- merge(alpha_div, metadata, by = "SampleID")
+head(alpha_merged)
+
+any(is.na(alpha_div$SampleID))
+any(is.na(meta$SampleID))
+
+
+# Alpha Diversity Plot — Um gráfico por índice, contendo todas as amostras
+
+plot_alpha_diversity <- function(ps) {
+  
+  # Calcula diversidade alfa por amostra
   alpha_div <- estimate_richness(ps, measures = c("Shannon", "Simpson", "Chao1", "ACE", "Observed"))
-  indices <- colnames(alpha_div)
+  alpha_div$SampleID <- rownames(alpha_div)
+  
+  # Verifica se SampleID está correto
+  if (any(is.na(alpha_div$SampleID))) {
+    stop("SampleID contains NA!")
+  }
+  
+  indices <- c("Shannon", "Simpson", "Chao1", "ACE", "Observed")
+  
   for (index in indices) {
-    alpha_div_index <- data.frame(Diversity = alpha_div[[index]], Index = index)
-    p <- ggplot(alpha_div_index, aes(x = Index, y = Diversity, fill = Index)) +
-      geom_boxplot() +
-      labs(title = paste("Alpha Diversity - Index:", index), x = "", y = "Value") +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    save_plot(p, paste0("alpha_diversity_", index, ".png"), width = 8, height = 6)
+    
+    plot_df <- data.frame(
+      Sample = alpha_div$SampleID,
+      Diversity = alpha_div[[index]]
+    )
+    
+    p <- ggplot(plot_df, aes(x = Sample, y = Diversity)) +
+      geom_point(size = 3, color = "steelblue") +
+      geom_line(group = 1, color = "gray")+
+      labs(title = paste("Alpha Diversity -", index),
+           x = "SampleID",
+           y = index) +
+      theme_minimal(base_size = 14) +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    
+    ggsave(filename = paste0("Output/alpha_diversity_", index, ".png"),
+           plot = p, width = 10, height = 6, dpi = 600, bg = "white")
+    
     print(p)
   }
 }
+plot_alpha_diversity(ps)
 
-plot_individual_alpha_diversity(ps)
+
 
 # Function to plot NMDS with Bray-Curtis and sample labels
 plot_beta_diversity <- function(ps, metadata_column) {

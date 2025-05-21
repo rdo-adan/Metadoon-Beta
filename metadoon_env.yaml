@@ -9,12 +9,12 @@ dependencies:
   # Python core
   - python=3.12
   - pip
-  - tk                   # Tkinter GUI support
-  - pillow               # Image handling
-  - wget                 # Download resources
+  - tk
+  - pillow
+  - wget
 
   # External tool
-  - vsearch              # FASTQ clustering and dereplication
+  - vsearch
 
   # System-level libraries for R
   - libcurl
@@ -47,8 +47,10 @@ dependencies:
   - r-knitr
   - r-rmarkdown
   - r-tinytex
+  - r-ggpubr
 
 
   # R packages via Conda (Bioconductor)
   - bioconductor-phyloseq
   - bioconductor-deseq2
+  - bioconductor-scater 
