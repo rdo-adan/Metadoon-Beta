@@ -23,7 +23,7 @@
 | *`tk`*     | *GUI interface with Tkinter*    |
 | *`pillow`* | *Icon/image handling in Python* |
 
-> \*Standard libraries used: **`os`**, **`sys`**, **`json`**, **`threading`**, \**`subprocess`*
+> \*Standard libraries used: **`os`**, **`sys`**, **`json`**, **`threading`**, **`subprocess`**
 
 ---
 
@@ -63,7 +63,7 @@ devtools::install_github("microbiome/microbiome")
 | `libcurl`, `libxml2`                                     | *R package compilation*             |
 | `openssl`, `zlib`, `gcc`, `make`, `libuv`, `gmp`, `mpfr` | *System/compiler libraries*         |
 
-> *On macOS, **************XQuartz************** may be required for full R graphical support.*
+> *On macOS, **XQuartz** may be required for full R graphical support.*
 
 ---
 
@@ -91,9 +91,9 @@ devtools::install_github("microbiome/microbiome")
    bash setup.sh
    ```
 
-3. Activate the conda enviroment:
+3. *Activate the Conda environment:*
 
-   ```
+   ```bash
    conda activate metadoon
    ```
 
@@ -117,6 +117,26 @@ Metadoon/
 ├── *.png, *.ico, *.icns    # Icons and GUI assets
 └── Output/, Metadata/, OTUs/, Taxonomy/, Tree File/
 ```
+
+---
+
+## *🗒️ How to Generate the Final Report*
+
+- Inside the Metadoon interface, go to the **"Tools"** menu.
+- Click **"Generate Final Report"**.
+- This will run the R script that creates a complete report with all plots, alpha and beta diversity results, PERMANOVA, DESeq2 outputs, and summary.
+- The report will be saved in the **Output/** folder as an HTML file.
+
+## *💾 How to Save All Results to a Separate Folder*
+
+- Inside the interface, go to **"Tools"**.
+- Click **"Save and Clean Results"**.
+- You will be prompted to select a folder where you want to save the results.
+- Metadoon will move:
+  - The **Output/** folder (containing all plots, tables, reports)
+  - The parameter file **pipeline_params.json**
+  - The **Rplots.pdf** file if generated
+- Once copied, the Output folder in the project will be cleared.
 
 ---
 
