@@ -473,8 +473,7 @@ def run_pipeline():
             print(f"The file {file_path} was not found.")
 
         try:
-            subprocess.run(["Rscript", "Analise.R"], check=True, capture_output=True,
-                                                text=True)  # executes the analysis script
+            os.system(fr"Rscript Analise.R") # executes the analysis script
             terminal_output.insert(tk.END, "Analysis completed successfully.\n")
         except subprocess.CalledProcessError as e:
             terminal_output.insert(tk.END, f"Error in R analysis execution:\n{e.stderr}\n")  # shows detailed errors

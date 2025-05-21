@@ -168,44 +168,84 @@ for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
 Alpha diversity metrics quantify the diversity within a single microbial community (sample). They describe both richness (number of taxa) and evenness (how uniformly the taxa are distributed). Commonly used indices include Observed, Chao1, ACE (richness estimators), Shannon (balance between richness and evenness), and Simpson (probability that two individuals randomly selected belong to the same species).
 
 ```{r alpha-diversity}
-# Alpha Diversity Plot — Um gráfico por índice, contendo todas as amostras
+# Alpha Diversity Plot grouped by any metadata column
 
 plot_alpha_diversity <- function(ps) {
   
-  # Calcula diversidade alfa por amostra
+  # Create output folder if it does not exist
+  if (!dir.exists("Output")) dir.create("Output")
+  
+  # Calculate alpha diversity
   alpha_div <- estimate_richness(ps, measures = c("Shannon", "Simpson", "Chao1", "ACE", "Observed"))
   alpha_div$SampleID <- rownames(alpha_div)
   
-  # Verifica se SampleID está correto
-  if (any(is.na(alpha_div$SampleID))) {
-    stop("SampleID contains NA!")
+  # Find the metadata file inside the folder
+  meta_file <- list.files(path = "Metadata File", pattern = "\\.tsv$", full.names = TRUE)
+  
+  # Check if a file was found
+  if (length(meta_file) == 0) {
+    stop("❌ No metadata .tsv file found in 'Metadata File' folder!")
+  } else if (length(meta_file) > 1) {
+    warning("⚠️ More than one .tsv file found. Using the first one: ", meta_file[1])
   }
   
-  indices <- c("Shannon", "Simpson", "Chao1", "ACE", "Observed")
+  # Read the metadata file safely
+  meta_raw <- read.csv(meta_file[1], header = TRUE, sep = "\t", check.names = FALSE)
   
-  for (index in indices) {
+  # Check if SampleID is a column or rownames
+  if ("SampleID" %in% colnames(meta_raw)) {
+    rownames(meta_raw) <- meta_raw$SampleID
+    meta_raw$SampleID <- NULL
+  }
+  
+  meta_data <- meta_raw
+  meta_data$SampleID <- rownames(meta_data)  # Add SampleID as a column
+  
+  # Merge alpha diversity with metadata
+  alpha_merged <- merge(alpha_div, meta_data, by = "SampleID")
+  
+  # Define diversity indices
+  indices <- c("Observed", "Chao1", "ACE", "Shannon", "Simpson")
+  
+  # Detect metadata columns (all except SampleID)
+  meta_columns <- setdiff(colnames(meta_data), "SampleID")
+  
+  if (length(meta_columns) == 0) {
+    stop("❌ No metadata columns found besides SampleID.")
+  }
+  
+  for (meta_var in meta_columns) {
     
-    plot_df <- data.frame(
-      Sample = alpha_div$SampleID,
-      Diversity = alpha_div[[index]]
-    )
+    message(paste0("🚀 Generating alpha diversity plots grouped by '", meta_var, "'"))
     
-    p <- ggplot(plot_df, aes(x = Sample, y = Diversity)) +
-      geom_point(size = 3, color = "steelblue") +
-      geom_line(group = 1, color = "gray")+
-      labs(title = paste("Alpha Diversity -", index),
-           x = "SampleID",
-           y = index) +
-      theme_minimal(base_size = 14) +
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-    
-    ggsave(filename = paste0("Output/alpha_diversity_", index, ".png"),
-           plot = p, width = 10, height = 6, dpi = 600, bg = "white")
-    
-    print(p)
+    for (index in indices) {
+      
+      plot_df <- data.frame(
+        Sample = alpha_merged$SampleID,
+        Diversity = alpha_merged[[index]],
+        Group = as.factor(alpha_merged[[meta_var]])
+      )
+      
+      p <- ggplot(plot_df, aes(x = Group, y = Diversity, fill = Group)) +
+        geom_boxplot(outlier.shape = NA) +
+        geom_jitter(aes(color = Group), width = 0.2, size = 2, alpha = 0.8) +
+        labs(title = paste("Alpha Diversity -", index, "\nGrouped by:", meta_var),
+             x = meta_var,
+             y = index) +
+        theme_minimal(base_size = 14) +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      
+      ggsave(filename = paste0("Output/alpha_diversity_", index, "_", meta_var, ".png"),
+             plot = p, width = 8, height = 6, dpi = 600, bg = "white")
+      
+      print(p)
+    }
   }
 }
+
+# Run the function
 plot_alpha_diversity(ps)
+
 ```
 
 -   **Observed**: the raw count of taxa detected in each sample.
@@ -225,47 +265,91 @@ Use this analysis to pinpoint key taxa that respond to experimental treatments o
 Beta diversity evaluates the differences in microbial composition between samples or groups. It measures the extent to which communities share similar taxa and relative abundances. NMDS (Non-metric Multidimensional Scaling) is a common ordination method used to visualize beta diversity.
 ## NMDS:
 ```{r beta-nmds}
-# NMDS plot function
-plot_beta_diversity <- function(ps, metadata_column) {
-  ps_dist <- phyloseq::distance(ps, method = "bray")
-  ord_nmds <- metaMDS(ps_dist, k = 2, trymax = 20)
-  ord_data <- data.frame(ord_nmds$points)
-  ord_data$SampleID <- rownames(ord_data)
-  ord_data$Group <- sample_data(ps)[[metadata_column]]
+plot_beta_diversity <- function(ps) {
   
-  p <- ggplot(ord_data, aes(x = MDS1, y = MDS2, color = Group, label = SampleID)) +
-    geom_point(size = 3) +
-    geom_text(vjust = -0.5, hjust = 0.5) +
-    stat_ellipse() +
-    labs(title = paste("NMDS -", metadata_column), x = "NMDS1", y = "NMDS2") +
-    theme_minimal()
-  ggsave(file.path(output_dir, paste0("ordination_NMDS_", metadata_column, ".png")), p, dpi = 600)
-  print(p)
+  if (!dir.exists("Output")) dir.create("Output")
+  
+  meta_data <- as(sample_data(ps), "data.frame")
+  meta_data$SampleID <- rownames(meta_data)
+  
+  meta_columns <- setdiff(colnames(meta_data), "SampleID")
+  
+  dist <- phyloseq::distance(ps, method = "bray")
+  
+  for (meta_var in meta_columns) {
+    
+    message(paste0("🚀 Generating beta diversity plots grouped by '", meta_var, "'"))
+    
+    ord_nmds <- metaMDS(dist, k = 2, trymax = 50)
+    nmds_df <- data.frame(ord_nmds$points)
+    nmds_df$SampleID <- rownames(nmds_df)
+    nmds_df$Group <- meta_data[match(nmds_df$SampleID, meta_data$SampleID), meta_var]
+    
+    p <- ggplot(nmds_df, aes(x = MDS1, y = MDS2, color = Group, label = SampleID)) +
+      geom_point(size = 3) +
+      geom_text(vjust = -0.5, hjust = 0.5) +
+      stat_ellipse() +
+      labs(title = paste("Beta Diversity - NMDS grouped by", meta_var),
+           x = "NMDS1", y = "NMDS2") +
+      theme_minimal(base_size = 14)
+    
+    ggsave(filename = paste0("Output/beta_diversity_NMDS_", meta_var, ".png"),
+           plot = p, width = 10, height = 8, dpi = 600, bg = "white")
+    
+    print(p)
+  }
 }
+plot_beta_diversity(ps)
 
-for (metadata_column in colnames(sample_data(ps))) {
-  plot_beta_diversity(ps, metadata_column)
-}
 ```
 ## PCoA:
 ```{r beta-pcoa}
-# PCoA
-for (metadata_column in colnames(sample_data(ps))) {
+# Beta Diversity Plot using PCoA — grouped by any metadata column
+
+plot_pcoa_diversity <- function(ps) {
+  
+  # Create output folder if it does not exist
+  if (!dir.exists("Output")) dir.create("Output")
+  
+  # Extract metadata
+  meta_data <- as(sample_data(ps), "data.frame")
+  meta_data$SampleID <- rownames(meta_data)
+  
+  # Detect metadata columns (all except SampleID)
+  meta_columns <- setdiff(colnames(meta_data), "SampleID")
+  
+  # Calculate distance matrix (Bray-Curtis)
   dist <- phyloseq::distance(ps, method = "bray")
-  ord <- ape::pcoa(as.matrix(dist))
-  ord_df <- data.frame(ord$vectors[, 1:2])
-  colnames(ord_df) <- c("PCoA1", "PCoA2")
-  ord_df$SampleID <- rownames(ord_df)
-  ord_df$Group <- sample_data(ps)[[metadata_column]]
-  p <- ggplot(ord_df, aes(x = PCoA1, y = PCoA2, color = Group, label = SampleID)) +
-    geom_point(size = 3) +
-    geom_text(vjust = -0.5, hjust = 0.5) +
-    stat_ellipse() +
-    labs(title = paste("PCoA -", metadata_column), x = "PCoA1", y = "PCoA2") +
-    theme_minimal()
-  ggsave(file.path(output_dir, paste0("ordination_PCoA_", metadata_column, ".png")), p, dpi = 600)
-  print(p)
+  
+  # Run PCoA
+  ord_pcoa <- ape::pcoa(as.matrix(dist))
+  
+  # Prepare ordination dataframe
+  pcoa_df <- data.frame(ord_pcoa$vectors[, 1:2])
+  colnames(pcoa_df) <- c("PCoA1", "PCoA2")
+  pcoa_df$SampleID <- rownames(pcoa_df)
+  
+  for (meta_var in meta_columns) {
+    
+    message(paste0("🚀 Generating PCoA plots grouped by '", meta_var, "'"))
+    
+    pcoa_df$Group <- meta_data[match(pcoa_df$SampleID, meta_data$SampleID), meta_var]
+    
+    p <- ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = Group, label = SampleID)) +
+      geom_point(size = 3) +
+      geom_text(vjust = -0.5, hjust = 0.5) +
+      stat_ellipse() +
+      labs(title = paste("Beta Diversity - PCoA grouped by", meta_var),
+           x = "PCoA1", y = "PCoA2") +
+      theme_minimal(base_size = 14)
+    
+    ggsave(filename = paste0("Output/beta_diversity_PCoA_", meta_var, ".png"),
+           plot = p, width = 10, height = 8, dpi = 600, bg = "white")
+    
+    print(p)
+  }
 }
+plot_pcoa_diversity(ps)
 ```
 
 **Interpretation**: - Each point represents a microbial community from a sample. - Samples closer together are more similar in composition. - Ellipses indicate clustering patterns by metadata group. - **NMDS** (Non-metric Multidimensional Scaling): focuses on rank-order distances; does not preserve exact distances but reveals relative similarities. Good for complex, non-linear relationships. - **PCoA** (Principal Coordinates Analysis): preserves actual distances as well as possible; useful when understanding variance structure of dissimilarity matrix.
@@ -275,21 +359,30 @@ for (metadata_column in colnames(sample_data(ps))) {
 PERMANOVA is a non-parametric method used to test whether the centroids (i.e., average community compositions) of different groups differ significantly. It uses permutations on a distance matrix to assess whether the observed differences between groups are greater than expected by chance.
 
 ```{r permanova}
-run_permanova <- function(ps, metadata_column) {
-  metadata <- as(sample_data(ps), "data.frame")
+run_permanova <- function(ps) {
+  
+  if (!dir.exists("Output")) dir.create("Output")
+  
+  meta_data <- as(sample_data(ps), "data.frame")
+  
   dist_bc <- phyloseq::distance(ps, method = "bray")
-  if (metadata_column %in% colnames(metadata)) {
-    formula <- as.formula(paste("dist_bc ~", metadata_column))
-    permanova_result <- adonis2(formula, data = metadata, permutations = 999)
-    result_file <- file.path(output_dir, paste0("permanova_result_", metadata_column, ".txt"))
+  
+  meta_columns <- colnames(meta_data)
+  
+  for (meta_var in meta_columns) {
+    
+    formula <- as.formula(paste("dist_bc ~", meta_var))
+    permanova_result <- adonis2(formula, data = meta_data, permutations = 999)
+    
+    result_file <- paste0("Output/permanova_result_", meta_var, ".txt")
+    
     write.table(permanova_result, file = result_file, sep = "\t", col.names = NA, quote = FALSE)
+    
+    message(paste0("✔️ PERMANOVA result saved for ", meta_var))
     print(permanova_result)
   }
 }
-
-for (metadata_column in colnames(sample_data(ps))) {
-  run_permanova(ps, metadata_column)
-}
+run_permanova(ps)
 ```
 
 **Interpretation**: - The pseudo-F statistic indicates the ratio of between-group to within-group variance. - A low p-value (\< 0.05) suggests significant differences in community composition between groups. - PERMANOVA assumes similar dispersion among groups; pair this analysis with a check for homogeneity of dispersion (e.g., using betadisper).
@@ -299,80 +392,86 @@ for (metadata_column in colnames(sample_data(ps))) {
 DESeq2 identifies taxa that are differentially abundant between sample groups based on count data. It models the counts using a negative binomial distribution and performs statistical testing to identify significant log2 fold changes between conditions.
 
 ```{r deseq2-analysis}
-meta_columns <- colnames(sample_data(ps))
-
-for (meta_var in meta_columns) {
+run_deseq2 <- function(ps) {
   
-  var_values <- sample_data(ps)[[meta_var]]
+  if (!dir.exists("Output")) dir.create("Output")
   
-  # ✅ Verifica se é categórico (fator ou string com poucos níveis)
-  if (is.factor(var_values) || (is.character(var_values) && length(unique(var_values)) < nrow(sample_data(ps)))) {
+  meta_data <- as(sample_data(ps), "data.frame")
+  meta_data$SampleID <- rownames(meta_data)
+  
+  meta_columns <- setdiff(colnames(meta_data), "SampleID")
+  
+  taxa_table <- as(tax_table(ps), "matrix")
+  
+  get_tax_label <- function(tax_mat) {
+    apply(tax_mat, 1, function(x) {
+      taxa_levels <- c("Genus", "Family", "Order", "Class", "Phylum", "Kingdom")
+      name <- NA
+      for (level in taxa_levels) {
+        if (!is.na(x[level]) && x[level] != "") {
+          name <- x[level]
+          break
+        }
+      }
+      if (is.na(name)) {
+        name <- rownames(x)
+      }
+      return(name)
+    })
+  }
+  
+  tax_labels <- get_tax_label(taxa_table)
+  
+  for (meta_var in meta_columns) {
     
-    message(paste0("Running DESeq2 for metadata variable: ", meta_var))
+    message(paste0("🚀 Running DESeq2 for metadata variable: ", meta_var))
     
-    # Prepara o DESeq2
     formula_deseq <- as.formula(paste("~", meta_var))
-    dds <- phyloseq_to_deseq2(ps, formula_deseq)
     
-    # Executa DESeq2
+    dds <- phyloseq_to_deseq2(ps, formula_deseq)
     dds <- DESeq(dds, test = "Wald", fitType = "parametric")
     
-    # Extrai resultados
     res <- results(dds, cooksCutoff = FALSE)
     res <- res[order(res$padj, na.last = NA), ]
     res_sig <- subset(res, padj < 0.05)
     
-    # Salva os resultados
-    write.csv(as.data.frame(res), file.path(output_dir, paste0("DESeq2_all_results_", meta_var, ".csv")))
-    write.csv(as.data.frame(res_sig), file.path(output_dir, paste0("DESeq2_significant_results_", meta_var, ".csv")))
+    res_df <- as.data.frame(res)
+    res_df$Taxa <- tax_labels[rownames(res_df)]
     
-    # Taxonomia (opcional)
-    if (!is.null(tax_table(ps, errorIfNULL = FALSE)) & nrow(res_sig) > 0) {
-      taxa <- as(tax_table(ps)[rownames(res_sig), ], "matrix")
-      sigtab <- cbind(as(res_sig, "data.frame"), taxa)
-    } else {
-      sigtab <- as.data.frame(res_sig)
-    }
+    res_sig_df <- as.data.frame(res_sig)
+    res_sig_df$Taxa <- tax_labels[rownames(res_sig_df)]
     
-    # Gráfico se houver taxa significante
-    if (nrow(sigtab) > 0) {
-      sigtab$taxa <- rownames(sigtab)
-      
-      p <- ggplot(sigtab, aes(x = reorder(taxa, log2FoldChange), y = log2FoldChange, fill = log2FoldChange > 0)) +
+    write.csv(res_df, file.path("Output", paste0("DESeq2_all_results_", meta_var, ".csv")))
+    write.csv(res_sig_df, file.path("Output", paste0("DESeq2_significant_results_", meta_var, ".csv")))
+    
+    if (nrow(res_sig_df) > 0) {
+      p <- ggplot(res_sig_df, aes(x = reorder(Taxa, log2FoldChange), y = log2FoldChange, fill = log2FoldChange > 0)) +
         geom_bar(stat = "identity") +
         coord_flip() +
-        labs(title = paste("Differential Abundance (", meta_var, ")", sep = ""),
+        labs(title = paste("Differential Abundance (", meta_var, ")"),
              x = "Taxa", y = "Log2 Fold Change") +
         theme_minimal() +
         scale_fill_manual(values = c("red", "blue"))
       
-      ggsave(file.path(output_dir, paste0("deseq2_differential_taxa_", meta_var, ".png")),
+      ggsave(file.path("Output", paste0("deseq2_differential_taxa_", meta_var, ".png")),
              plot = p, width = 10, height = 8, dpi = 600)
       
       print(p)
     } else {
-      message(paste0("No significantly different taxa found for ", meta_var, "."))
+      message(paste0("⚠️ No significant taxa found for ", meta_var))
     }
-    
-  } else {
-    message(paste0("Skipping variable '", meta_var, "' (not categorical)."))
   }
 }
-
-#deseq2 results:
-deseq_files <- list.files(path = "Output", pattern = "^DESeq2_.*\\.csv$", full.names = TRUE)
-for (file in deseq_files) {
-  
-  cat("###", basename(file), "\n\n")  # 🔥 Cria um título no relatório
-  
-  deseq_table <- read.csv(file)
-  
-  knitr::kable(head(deseq_table, 10), caption = paste("Top 10 entries from", basename(file)))
-  
-}
-
-
-
+run_deseq2(ps)
 ```
 
 **Interpretation**: - Each bar represents a taxon with significant differential abundance between sample groups. - log2 Fold Change \> 0: taxon is more abundant in the reference condition. - log2 Fold Change \< 0: taxon is more abundant in the comparison condition. - padj \< 0.05: statistically significant after multiple testing correction.
+
+```{r Clean_all, echo=FALSE}
+########################## Clean Environment ########################
+
+# Limpa o ambiente para liberar memória após a execução (opcional, mas recomendado)
+rm(list = ls())
+gc() # Coleta o lixo para liberar memória imediatamente
+message("Script executed successfully. All results have been saved in the 'Output' folder.")
+```
