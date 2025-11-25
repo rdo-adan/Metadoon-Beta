@@ -4,7 +4,8 @@ output: html_document
 fontsize: 11pt
 geometry: margin=1in
 ---
-```{r setup, include=FALSE}
+
+```{r setup, include=FALSE, echo= FALSE}
 library(phyloseq)
 library(vegan)
 library(ggplot2)
@@ -19,13 +20,51 @@ library(pheatmap)
 library(viridis)
 library(ape)
 library(microbiome)
+library(wesanderson)
+library(RColorBrewer)
+library(jsonlite)
+library(ggrepel)
 
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+
 script_dir <- find_root(has_file("Analise.R"))
 output_dir <- file.path(script_dir, "Output")
 if (!dir.exists(output_dir)) dir.create(output_dir)
+
+params_file <- "pipeline_params.json"
+if (file.exists(params_file)) {
+  params <- fromJSON(params_file)
+} else {
+  stop("pipeline_params.json not found! Please configure parameters first.")
+}
+
+rarefaction_step <- params$rarefaction_step %||% 100
+rarefaction_cex <- params$rarefaction_cex %||% 0.6
+rarefaction_label <- params$rarefaction_label %||% FALSE
+abundance_top_n <- params$abundance_top_n %||% 15
+core_top_n <- params$core_top_n %||% 30
+stat_test <- params$stat_test %||% "ANOVA"
+color_palette <- params$color_palette %||% "viridis"
+dist_method <- params$dist_method %||% "bray"
+
+get_palette <- function(palette_name) {
+  switch(palette_name,
+         viridis = viridis::viridis(10),
+         plasma = viridis::plasma(10),
+         inferno = viridis::inferno(10),
+         magma = viridis::magma(10),
+         cividis = viridis::cividis(10),
+         wesanderson = wesanderson::wes_palette("Darjeeling1", 10),
+         RColorBrewer::brewer.pal(10, "Set3")  # default fallback
+  )
+}
+
+palette_colors <- get_palette(color_palette)
 ```
 ```{r load-data}
+# Load data as in existing script
 otu_file <- file.path(script_dir, "OTUs/otutab.txt")
 taxonomy_file <- file.path(script_dir, "Taxonomy/taxonomy.txt")
 metadata_dir <- file.path(script_dir, "Metadata File")
@@ -71,17 +110,19 @@ ps
 
 The rarefaction curve provides insight into the richness of microbial communities across samples. It estimates the number of observed species (or OTUs) as a function of the sequencing depth. A plateau indicates sufficient sampling depth.
 
-```{r rarefaction-curve}
+```{r rarefaction-curve, echo=FALSE}
 # Extract OTU table as matrix
 otu <- as(otu_table(ps), "matrix")
-
+if (!taxa_are_rows(ps)) {
+  otu <- t(otu)
+}
 # Ensure taxa are in rows
 if (!taxa_are_rows(ps)) {
   otu <- t(otu)
 }
 
 # Plot rarefaction curve
-vegan::rarecurve(otu, step = 100, cex = 0.6, label = FALSE)
+vegan::rarecurve(otu, step = rarefaction_step, cex = rarefaction_cex, label = rarefaction_label)
 title("Rarefaction Curve")
 ```
 
@@ -91,12 +132,12 @@ title("Rarefaction Curve")
 
 Relative abundance analysis illustrates the proportional representation of microbial taxa within each sample, typically aggregated at different taxonomic levels (e.g., Phylum, Genus). These stacked bar plots help visualize shifts in the dominant microbial community composition across experimental groups or conditions.
 
-```{r abundance-plots, results='hide'}
+```{r abundance-plots, results='hide', echo=FALSE}
 save_plot <- function(plot, filename, width = 12, height = 8) {
   ggsave(filename = file.path(output_dir, filename), plot = plot, width = width, height = height, dpi = 300, bg = "white")
 }
 
-plot_abundance <- function(ps, taxrank, top_n = 15) {
+plot_abundance <- function(ps, taxrank, top_n = abundance_top_n) {
   ps_tax <- tax_glom(ps, taxrank = taxrank)
   ps_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
   taxa_sums <- taxa_sums(ps_rel)
@@ -106,13 +147,14 @@ plot_abundance <- function(ps, taxrank, top_n = 15) {
     geom_bar(stat = "identity") +
     labs(title = paste("Relative Abundance by", taxrank), x = "Sample", y = "Relative Abundance") +
     theme_minimal(base_size = 14) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
-  save_plot(p, paste0("abundance_", taxrank, ".png"), width = 14, height = 8)
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    scale_fill_manual(values = palette_colors)
+  save_plot(p, paste0("abundance_", taxrank, ".png"), width = 16, height = 10)
   print(p)
 }
 
 for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
-  plot_abundance(ps, rank, top_n = 15)
+  plot_abundance(ps, rank)
 }
 ```
 
@@ -128,8 +170,8 @@ for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
 
 The core microbiome refers to the set of microbial taxa that are consistently detected across a defined proportion of samples within a group. Identifying core taxa is essential for understanding the stable and potentially functionally important members of the microbial community. In the heatmaps below, prevalence (frequency of detection) and detection thresholds (minimum relative abundance) are used to determine which taxa are considered part of the core microbiome.
 
-```{r core-heatmaps, results='hide'}
-plot_core_heatmap <- function(ps, taxrank, top_n = 30) {
+```{r core-heatmaps, results='hide', echo=FALSE}
+plot_core_heatmap <- function(ps, taxrank, top_n = core_top_n) {
   ps_tax <- tax_glom(ps, taxrank)
   ps_tax_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
   prev_table <- microbiome::prevalence(ps_tax_rel)
@@ -137,13 +179,14 @@ plot_core_heatmap <- function(ps, taxrank, top_n = 30) {
   ps_top_taxa <- prune_taxa(top_taxa, ps_tax_rel)
   tax_table(ps_top_taxa)[, taxrank] <- as.character(tax_table(ps_top_taxa)[, taxrank])
   taxa_names(ps_top_taxa) <- tax_table(ps_top_taxa)[, taxrank]
-  p <- plot_core(ps_top_taxa, plot.type = "heatmap",
+  p <- plot_core(ps_top_taxa,
+                 plot.type = "heatmap",
                  prevalences = seq(.05, 1, .05),
                  detections = 10^seq(log10(1e-4), log10(.2), length = 10),
                  min.prevalence = 0.5) +
     xlab("Detection Threshold (Relative Abundance (%))") +
     ylab(taxrank) +
-    scale_fill_viridis() +
+    scale_fill_manual(values = palette_colors) +
     theme_minimal() +
     ggtitle(paste("Core Microbiome at", taxrank, "Level"))
   save_plot(p, paste0("core_microbiome_heatmap_", taxrank, ".png"), width = 16, height = 10)
@@ -151,7 +194,7 @@ plot_core_heatmap <- function(ps, taxrank, top_n = 30) {
 }
 
 for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
-  plot_core_heatmap(ps, rank, top_n = 30)
+  plot_core_heatmap(ps, rank)
 }
 ```
 
@@ -167,57 +210,35 @@ for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
 
 Alpha diversity metrics quantify the diversity within a single microbial community (sample). They describe both richness (number of taxa) and evenness (how uniformly the taxa are distributed). Commonly used indices include Observed, Chao1, ACE (richness estimators), Shannon (balance between richness and evenness), and Simpson (probability that two individuals randomly selected belong to the same species).
 
-```{r alpha-diversity}
+```{r alpha-diversity, echo=FALSE}
 # Alpha Diversity Plot grouped by any metadata column
-
 plot_alpha_diversity <- function(ps) {
   
-  # Create output folder if it does not exist
   if (!dir.exists("Output")) dir.create("Output")
   
-  # Calculate alpha diversity
   alpha_div <- estimate_richness(ps, measures = c("Shannon", "Simpson", "Chao1", "ACE", "Observed"))
   alpha_div$SampleID <- rownames(alpha_div)
   
-  # Find the metadata file inside the folder
-  meta_file <- list.files(path = "Metadata File", pattern = "\\.tsv$", full.names = TRUE)
+  meta_file <- list.files(path = "Metadata File", pattern = "\\.tsv$|\\.csv$", full.names = TRUE)
+  if (length(meta_file) == 0) stop("No metadata file found.")
+  if (length(meta_file) > 1) warning("More than one metadata file found. Using the first:", meta_file[1])
   
-  # Check if a file was found
-  if (length(meta_file) == 0) {
-    stop("❌ No metadata .tsv file found in 'Metadata File' folder!")
-  } else if (length(meta_file) > 1) {
-    warning("⚠️ More than one .tsv file found. Using the first one: ", meta_file[1])
-  }
-  
-  # Read the metadata file safely
   meta_raw <- read.csv(meta_file[1], header = TRUE, sep = "\t", check.names = FALSE)
-  
-  # Check if SampleID is a column or rownames
   if ("SampleID" %in% colnames(meta_raw)) {
     rownames(meta_raw) <- meta_raw$SampleID
     meta_raw$SampleID <- NULL
   }
-  
   meta_data <- meta_raw
-  meta_data$SampleID <- rownames(meta_data)  # Add SampleID as a column
+  meta_data$SampleID <- rownames(meta_data)
   
-  # Merge alpha diversity with metadata
   alpha_merged <- merge(alpha_div, meta_data, by = "SampleID")
   
-  # Define diversity indices
   indices <- c("Observed", "Chao1", "ACE", "Shannon", "Simpson")
-  
-  # Detect metadata columns (all except SampleID)
   meta_columns <- setdiff(colnames(meta_data), "SampleID")
-  
-  if (length(meta_columns) == 0) {
-    stop("❌ No metadata columns found besides SampleID.")
-  }
+  if (length(meta_columns) == 0) stop("No metadata columns found besides SampleID.")
   
   for (meta_var in meta_columns) {
-    
-    message(paste0("🚀 Generating alpha diversity plots grouped by '", meta_var, "'"))
-    
+    message(paste0("Generating alpha diversity plots grouped by '", meta_var, "'"))
     for (index in indices) {
       
       plot_df <- data.frame(
@@ -226,14 +247,14 @@ plot_alpha_diversity <- function(ps) {
         Group = as.factor(alpha_merged[[meta_var]])
       )
       
-      p <- ggplot(plot_df, aes(x = Group, y = Diversity, fill = Group)) +
-        geom_boxplot(outlier.shape = NA) +
-        geom_jitter(aes(color = Group), width = 0.2, size = 2, alpha = 0.8) +
+      stat_test_result <- compare_means(Diversity ~ Group, data = plot_df, method = tolower(stat_test))
+      
+      p <- ggboxplot(plot_df, x = "Group", y = "Diversity", color = "Group", add = "jitter") +
         labs(title = paste("Alpha Diversity -", index, "\nGrouped by:", meta_var),
-             x = meta_var,
-             y = index) +
+             x = meta_var, y = index) +
         theme_minimal(base_size = 14) +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+        stat_pvalue_manual(stat_test_result, label = "p.format")
       
       ggsave(filename = paste0("Output/alpha_diversity_", index, "_", meta_var, ".png"),
              plot = p, width = 8, height = 6, dpi = 600, bg = "white")
@@ -243,7 +264,6 @@ plot_alpha_diversity <- function(ps) {
   }
 }
 
-# Run the function
 plot_alpha_diversity(ps)
 
 ```
@@ -264,32 +284,33 @@ Use this analysis to pinpoint key taxa that respond to experimental treatments o
 
 Beta diversity evaluates the differences in microbial composition between samples or groups. It measures the extent to which communities share similar taxa and relative abundances. NMDS (Non-metric Multidimensional Scaling) is a common ordination method used to visualize beta diversity.
 ## NMDS:
-```{r beta-nmds}
-plot_beta_diversity <- function(ps) {
+```{r beta-nmds, echo=FALSE}
+plot_beta_diversity <- function(ps, dist_method = dist_method) {
   
   if (!dir.exists("Output")) dir.create("Output")
   
   meta_data <- as(sample_data(ps), "data.frame")
   meta_data$SampleID <- rownames(meta_data)
-  
   meta_columns <- setdiff(colnames(meta_data), "SampleID")
-  
-  dist <- phyloseq::distance(ps, method = "bray")
+  dist <- phyloseq::distance(ps, method = dist_method)
   
   for (meta_var in meta_columns) {
-    
-    message(paste0("🚀 Generating beta diversity plots grouped by '", meta_var, "'"))
+    message(paste0("Generating beta diversity NMDS plots grouped by ", meta_var, " using method ", dist_method))
     
     ord_nmds <- metaMDS(dist, k = 2, trymax = 50)
     nmds_df <- data.frame(ord_nmds$points)
     nmds_df$SampleID <- rownames(nmds_df)
     nmds_df$Group <- meta_data[match(nmds_df$SampleID, meta_data$SampleID), meta_var]
     
+    permanova_result <- adonis2(dist ~ Group, data = meta_data, permutations = 999)
+    p_value <- permanova_result$`Pr(>F)`[1]
+    
     p <- ggplot(nmds_df, aes(x = MDS1, y = MDS2, color = Group, label = SampleID)) +
       geom_point(size = 3) +
       geom_text(vjust = -0.5, hjust = 0.5) +
       stat_ellipse() +
       labs(title = paste("Beta Diversity - NMDS grouped by", meta_var),
+           subtitle = paste("PERMANOVA p =", signif(p_value, digits = 3)),
            x = "NMDS1", y = "NMDS2") +
       theme_minimal(base_size = 14)
     
@@ -299,47 +320,43 @@ plot_beta_diversity <- function(ps) {
     print(p)
   }
 }
-plot_beta_diversity(ps)
+
+plot_beta_diversity(ps, dist_method)
 
 ```
 ## PCoA:
-```{r beta-pcoa}
+```{r beta-pcoa, echo=FALSE}
 # Beta Diversity Plot using PCoA — grouped by any metadata column
 
-plot_pcoa_diversity <- function(ps) {
+plot_pcoa_diversity <- function(ps, dist_method = dist_method) {
   
-  # Create output folder if it does not exist
   if (!dir.exists("Output")) dir.create("Output")
   
-  # Extract metadata
   meta_data <- as(sample_data(ps), "data.frame")
   meta_data$SampleID <- rownames(meta_data)
-  
-  # Detect metadata columns (all except SampleID)
   meta_columns <- setdiff(colnames(meta_data), "SampleID")
   
-  # Calculate distance matrix (Bray-Curtis)
-  dist <- phyloseq::distance(ps, method = "bray")
-  
-  # Run PCoA
+  dist <- phyloseq::distance(ps, method = dist_method)
   ord_pcoa <- ape::pcoa(as.matrix(dist))
-  
-  # Prepare ordination dataframe
   pcoa_df <- data.frame(ord_pcoa$vectors[, 1:2])
   colnames(pcoa_df) <- c("PCoA1", "PCoA2")
   pcoa_df$SampleID <- rownames(pcoa_df)
   
   for (meta_var in meta_columns) {
     
-    message(paste0("🚀 Generating PCoA plots grouped by '", meta_var, "'"))
+    message(paste0("Generating PCoA plots grouped by '", meta_var, "' using method ", dist_method))
     
     pcoa_df$Group <- meta_data[match(pcoa_df$SampleID, meta_data$SampleID), meta_var]
+    
+    permanova_result <- adonis2(dist ~ Group, data = meta_data, permutations = 999)
+    p_value <- permanova_result$`Pr(>F)`[1]
     
     p <- ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = Group, label = SampleID)) +
       geom_point(size = 3) +
       geom_text(vjust = -0.5, hjust = 0.5) +
       stat_ellipse() +
       labs(title = paste("Beta Diversity - PCoA grouped by", meta_var),
+           subtitle = paste("PERMANOVA p =", signif(p_value, digits = 3)),
            x = "PCoA1", y = "PCoA2") +
       theme_minimal(base_size = 14)
     
@@ -349,7 +366,8 @@ plot_pcoa_diversity <- function(ps) {
     print(p)
   }
 }
-plot_pcoa_diversity(ps)
+
+plot_pcoa_diversity(ps, dist_method)
 ```
 
 **Interpretation**: - Each point represents a microbial community from a sample. - Samples closer together are more similar in composition. - Ellipses indicate clustering patterns by metadata group. - **NMDS** (Non-metric Multidimensional Scaling): focuses on rank-order distances; does not preserve exact distances but reveals relative similarities. Good for complex, non-linear relationships. - **PCoA** (Principal Coordinates Analysis): preserves actual distances as well as possible; useful when understanding variance structure of dissimilarity matrix.
@@ -358,7 +376,7 @@ plot_pcoa_diversity(ps)
 
 PERMANOVA is a non-parametric method used to test whether the centroids (i.e., average community compositions) of different groups differ significantly. It uses permutations on a distance matrix to assess whether the observed differences between groups are greater than expected by chance.
 
-```{r permanova}
+```{r permanova, echo=FALSE}
 run_permanova <- function(ps) {
   
   if (!dir.exists("Output")) dir.create("Output")
@@ -391,7 +409,7 @@ run_permanova(ps)
 
 DESeq2 identifies taxa that are differentially abundant between sample groups based on count data. It models the counts using a negative binomial distribution and performs statistical testing to identify significant log2 fold changes between conditions.
 
-```{r deseq2-analysis}
+```{r deseq2-analysis, echo=FALSE}
 run_deseq2 <- function(ps) {
   
   if (!dir.exists("Output")) dir.create("Output")

@@ -11,11 +11,11 @@ import traceback
 from PIL import ImageTk
 import shutil
 
-if shutil.which("vsearch") is None:
-    raise EnvironmentError("VSEARCH not found in system PATH. Please install it.")
+#if shutil.which("vsearch") is None:
+#    raise EnvironmentError("VSEARCH not found in system PATH. Please install it.")
 
-if shutil.which("Rscript") is None:
-    raise EnvironmentError("Rscript not found. Please install R.")
+#if shutil.which("Rscript") is None:
+#    raise EnvironmentError("Rscript not found. Please install R.")
 
 
 class ContainerGeneral:
@@ -127,10 +127,18 @@ def configure_execution():
                 "chimera_db": config_container.params.get("chimera_db", ""),
                 "metadata": "",
                 "tree": "",
+                "stat_test": stat_test_combobox.get(),
+                "dist_method": dist_method_combobox.get() if 'dist_method_combobox' in locals() else 'bray',
+                "color_palette": color_palette_combobox.get(),
+                "rarefaction_step": int(rarefaction_step_entry.get()),
+                "rarefaction_cex": float(rarefaction_cex_entry.get()),
+                "abundance_top_n": int(abundance_top_n_entry.get()),
+                "core_top_n": int(core_top_n_entry.get())
             }
             config_container.save_params(params)
         except ValueError as ve:
             messagebox.showerror("Input Error", f"Please provide valid inputs for all fields. Error: {ve}")
+
     def load_metadata():
         terminal_output.config(state='normal')
         files = filedialog.askopenfilenames(initialdir="/", title="Select Files")
@@ -215,6 +223,43 @@ def configure_execution():
     ttk.Label(scrollable_frame, text="Tree here", background="lightgreen", foreground="red").pack(padx=2,pady=2)
     tree_entry = ttk.Button(scrollable_frame, text="Upload Tree File", command=load_tree)
     tree_entry.pack(pady=30)
+    
+    ttk.Label(scrollable_frame, text="Diversity Indices Statistical Test:").pack(pady=5)
+    stat_test_combobox = ttk.Combobox(scrollable_frame, values=["t-test", "ANOVA", "Wilcoxon"], state="readonly")
+    stat_test_combobox.set(config_container.params.get("stat_test", "ANOVA"))
+    stat_test_combobox.pack(pady=5)
+
+    ttk.Label(scrollable_frame, text="Beta Diversity Distance Method:").pack(pady=5)
+    dist_method_combobox = ttk.Combobox(scrollable_frame, values=["bray", "jaccard", "euclidean", "manhattan"], state="readonly")
+    dist_method_combobox.set(config_container.params.get("dist_method", "bray"))
+    dist_method_combobox.pack(pady=5)
+
+
+    ttk.Label(scrollable_frame, text="Color Palette:").pack(pady=5)
+    color_palette_combobox = ttk.Combobox(scrollable_frame, values=["viridis", "plasma", "inferno", "magma", "cividis", "wesanderson"], state="readonly")
+    color_palette_combobox.set(config_container.params.get("color_palette", "viridis"))
+    color_palette_combobox.pack(pady=5)
+
+    ttk.Label(scrollable_frame, text="Rarefaction Step:").pack(pady=5)
+    rarefaction_step_entry = ttk.Entry(scrollable_frame)
+    rarefaction_step_entry.insert(0, str(config_container.params.get("rarefaction_step", 100)))
+    rarefaction_step_entry.pack(pady=5)
+
+    ttk.Label(scrollable_frame, text="Rarefaction cex:").pack(pady=5)
+    rarefaction_cex_entry = ttk.Entry(scrollable_frame)
+    rarefaction_cex_entry.insert(0, str(config_container.params.get("rarefaction_cex", 0.6)))
+    rarefaction_cex_entry.pack(pady=5)
+
+    ttk.Label(scrollable_frame, text="Relative Abundance top_n:").pack(pady=5)
+    abundance_top_n_entry = ttk.Entry(scrollable_frame)
+    abundance_top_n_entry.insert(0, str(config_container.params.get("abundance_top_n", 15)))
+    abundance_top_n_entry.pack(pady=5)
+
+    ttk.Label(scrollable_frame, text="Core Microbiome top_n:").pack(pady=5)
+    core_top_n_entry = ttk.Entry(scrollable_frame)
+    core_top_n_entry.insert(0, str(config_container.params.get("core_top_n", 30)))
+    core_top_n_entry.pack(pady=5)
+    
     # Button to save the configured parameters
     save_button = ttk.Button(scrollable_frame, text="Save Parameters", command=save_parameters)
     save_button.pack(pady=20)

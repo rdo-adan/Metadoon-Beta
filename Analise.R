@@ -1,14 +1,48 @@
-################################### Carregamento de Pacotes ########################################
+################################### Loading Packages ########################################
 
-# Load Packages
 required_packages <- c("phyloseq", "vegan", "ggplot2", "ggpubr", "cowplot", "dplyr", 
-                       "DESeq2", "scater", "rprojroot", "pairwiseAdonis", "pheatmap", "viridis", "ape", "microbiome", "rprojroot")
+                       "DESeq2", "scater", "rprojroot", "pairwiseAdonis", "pheatmap", "viridis", "ape", "microbiome", "rprojroot","wesanderson","RColorBrewer")
 
-sapply(required_packages, require, character.only = TRUE) # Usando sapply para melhor tratamento de erros
+sapply(required_packages, require, character.only = TRUE) 
+
 
 ########################################### Loading Files ###################################
 script_dir <- find_root(has_file("Analise.R"))
 print(script_dir)
+library(jsonlite)
+`%||%` <- function(a, b) if (!is.null(a)) a else b 
+
+params_file <- "pipeline_params.json"
+
+if (file.exists(params_file)) {
+  params <- fromJSON(params_file)
+} else {
+  stop("pipeline_params.json not found! Please configure parameters first.")
+}
+
+# Assign variables with fallbacks to defaults
+
+stat_test <- params$stat_test %||% "anova"
+dist_method <- params$dist_method %||% "bray"
+color_palette <- params$color_palette %||% "viridis"
+abundance_top_n <- params$abundance_top_n %||% 15
+core_top_n <- params$core_top_n %||% 30
+rarefaction_step <- params$rarefaction_step %||% 100
+rarefaction_cex <- params$rarefaction_cex %||% 0.6
+
+get_palette <- function(palette_name) {
+  switch(palette_name,
+         viridis = viridis::viridis(10),
+         plasma = viridis::plasma(10),
+         inferno = viridis::inferno(10),
+         magma = viridis::magma(10),
+         cividis = viridis::cividis(10),
+         wesanderson = wesanderson::wes_palette("Darjeeling1", 10),
+         RColorBrewer::brewer.pal(10, "Set3")  # default fallback
+  )
+}
+palette_colors <- get_palette(color_palette)
+
 ########################################### Loading Files ###################################
 
 # Full paths to files based on the script directory
@@ -90,14 +124,14 @@ if (!taxa_are_rows(ps)) {
 }
 
 # Plot rarefaction curve
-vegan::rarecurve(otu, step = 100, cex = 0.6, label = FALSE)
+vegan::rarecurve(otu, step = rarefaction_step, cex = rarefaction_cex, label = rarefaction_label)
 title("Rarefaction Curve")
 
 
 
 
 # RElative abundance
-plot_abundance <- function(ps, taxrank, top_n = 15) {
+plot_abundance <- function(ps, taxrank, top_n = abundance_top_n) {
   ps_tax <- tax_glom(ps, taxrank = taxrank)
   ps_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
   taxa_sums <- taxa_sums(ps_rel)
@@ -107,14 +141,16 @@ plot_abundance <- function(ps, taxrank, top_n = 15) {
     geom_bar(stat = "identity") +
     labs(title = paste("Relative Abundance by", taxrank), x = "Sample", y = "Relative Abundance") +
     theme_minimal(base_size = 14) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+    palette_colors <- get_palette(color_palette) +  # Define this function (see next step)
+    p <- p + scale_fill_manual(values = palette_colors)
   save_plot(p, paste0("abundance_", taxrank, ".png"), width = 16, height = 10)
   print(p)
 }
 
 # Generate abundance plots for Phylum, Class, Order, Family, and Genus
 for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
-  plot_abundance(ps, rank, top_n = 15)
+  plot_abundance(ps, rank)
 }
 
 # Normalization
@@ -133,7 +169,7 @@ prevalences <- seq(0.05, 1, 0.05)
 detections <- 10^seq(log10(1e-4), log10(.2), length = 10)
 
 # Core_microbiome
-plot_core_heatmap <- function(ps, taxrank, top_n = 30) {
+plot_core_heatmap <- function(ps, taxrank, top_n = core_top_n) {
   ps_tax <- tax_glom(ps, taxrank)
   
   # Normalizar dados para torná-los composicionais
@@ -156,7 +192,8 @@ plot_core_heatmap <- function(ps, taxrank, top_n = 30) {
                  min.prevalence = 0.5) +
     xlab("Detection Threshold (Relative Abundance (%))") +
     ylab(taxrank) +
-    scale_fill_viridis() +
+    #scale_fill_viridis() +
+    p <- p + scale_fill_manual(values = palette_colors)
     theme_minimal() +
     ggtitle(paste("Core Microbiome at", taxrank, "Level"))
   
@@ -166,7 +203,7 @@ plot_core_heatmap <- function(ps, taxrank, top_n = 30) {
 
 # Gerar heatmaps para os níveis Phylum, Class, Order, Family e Genus
 for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
-  plot_core_heatmap(ps, rank, top_n = 30)
+  plot_core_heatmap(ps, rank)
 }
 
 
@@ -215,53 +252,33 @@ for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
 
 plot_alpha_diversity <- function(ps) {
   
-  # Create output folder if it does not exist
   if (!dir.exists("Output")) dir.create("Output")
   
-  # Calculate alpha diversity
   alpha_div <- estimate_richness(ps, measures = c("Shannon", "Simpson", "Chao1", "ACE", "Observed"))
   alpha_div$SampleID <- rownames(alpha_div)
   
-  # Find the metadata file inside the folder
-  meta_file <- list.files(path = "Metadata File", pattern = "\\.tsv$", full.names = TRUE)
+  meta_file <- list.files(path = "Metadata File", pattern = "\\.tsv$|\\.csv$", full.names = TRUE)
   
-  # Check if a file was found
-  if (length(meta_file) == 0) {
-    stop("❌ No metadata .tsv file found in 'Metadata File' folder!")
-  } else if (length(meta_file) > 1) {
-    warning("⚠️ More than one .tsv file found. Using the first one: ", meta_file[1])
-  }
+  if (length(meta_file) == 0) stop("No metadata .tsv or .csv file found.")
+  if (length(meta_file) > 1) warning("More than one metadata file found. Using the first: ", meta_file[1])
   
-  # Read the metadata file safely
   meta_raw <- read.csv(meta_file[1], header = TRUE, sep = "\t", check.names = FALSE)
-  
-  # Check if SampleID is a column or rownames
   if ("SampleID" %in% colnames(meta_raw)) {
     rownames(meta_raw) <- meta_raw$SampleID
     meta_raw$SampleID <- NULL
   }
-  
   meta_data <- meta_raw
-  meta_data$SampleID <- rownames(meta_data)  # Add SampleID as a column
+  meta_data$SampleID <- rownames(meta_data)
   
-  # Merge alpha diversity with metadata
   alpha_merged <- merge(alpha_div, meta_data, by = "SampleID")
   
-  # Define diversity indices
   indices <- c("Observed", "Chao1", "ACE", "Shannon", "Simpson")
-  
-  # Detect metadata columns (all except SampleID)
   meta_columns <- setdiff(colnames(meta_data), "SampleID")
+  if(length(meta_columns) == 0) stop("No metadata columns found besides SampleID.")
   
-  if (length(meta_columns) == 0) {
-    stop("❌ No metadata columns found besides SampleID.")
-  }
-  
-  for (meta_var in meta_columns) {
-    
-    message(paste0("🚀 Generating alpha diversity plots grouped by '", meta_var, "'"))
-    
-    for (index in indices) {
+  for(meta_var in meta_columns){
+    message(paste0("Generating alpha diversity plots grouped by '", meta_var, "'"))
+    for(index in indices){
       
       plot_df <- data.frame(
         Sample = alpha_merged$SampleID,
@@ -269,14 +286,15 @@ plot_alpha_diversity <- function(ps) {
         Group = as.factor(alpha_merged[[meta_var]])
       )
       
-      p <- ggplot(plot_df, aes(x = Group, y = Diversity, fill = Group)) +
-        geom_boxplot(outlier.shape = NA) +
-        geom_jitter(aes(color = Group), width = 0.2, size = 2, alpha = 0.8) +
+      # Perform chosen statistical test - example: ANOVA here; adapt as desired
+      stat_test_result <- compare_means(Diversity ~ Group, data = plot_df, method = tolower(stat_test))
+      
+      p <- ggboxplot(plot_df, x = "Group", y = "Diversity", color = "Group", add = "jitter") +
         labs(title = paste("Alpha Diversity -", index, "\nGrouped by:", meta_var),
-             x = meta_var,
-             y = index) +
+             x = meta_var, y = index) +
         theme_minimal(base_size = 14) +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+        stat_pvalue_manual(stat_test_result, label = "p.format") 
       
       ggsave(filename = paste0("Output/alpha_diversity_", index, "_", meta_var, ".png"),
              plot = p, width = 8, height = 6, dpi = 600, bg = "white")
@@ -290,7 +308,7 @@ plot_alpha_diversity <- function(ps) {
 plot_alpha_diversity(ps)
 
 
-plot_beta_diversity <- function(ps) {
+plot_beta_diversity <- function(ps, dist_method = "bray") {
   
   if (!dir.exists("Output")) dir.create("Output")
   
@@ -299,22 +317,28 @@ plot_beta_diversity <- function(ps) {
   
   meta_columns <- setdiff(colnames(meta_data), "SampleID")
   
-  dist <- phyloseq::distance(ps, method = "bray")
+  dist <- phyloseq::distance(ps, method = dist_method)
   
   for (meta_var in meta_columns) {
     
-    message(paste0("🚀 Generating beta diversity plots grouped by '", meta_var, "'"))
+    message(paste0("Generating beta diversity NMDS plots grouped by ", meta_var, " using method ", dist_method))
     
     ord_nmds <- metaMDS(dist, k = 2, trymax = 50)
     nmds_df <- data.frame(ord_nmds$points)
     nmds_df$SampleID <- rownames(nmds_df)
     nmds_df$Group <- meta_data[match(nmds_df$SampleID, meta_data$SampleID), meta_var]
     
+    # Calculate PERMANOVA for p-value
+    formula <- as.formula(paste("dist ~", meta_var))
+    permanova_result <- adonis2(dist ~ Group, data = nmds_df, permutations = 999)
+    p_value <- permanova_result$`Pr(>F)`[1]
+    
     p <- ggplot(nmds_df, aes(x = MDS1, y = MDS2, color = Group, label = SampleID)) +
       geom_point(size = 3) +
       geom_text(vjust = -0.5, hjust = 0.5) +
       stat_ellipse() +
       labs(title = paste("Beta Diversity - NMDS grouped by", meta_var),
+           subtitle = paste("PERMANOVA p =", signif(p_value, digits = 3)),
            x = "NMDS1", y = "NMDS2") +
       theme_minimal(base_size = 14)
     
@@ -324,45 +348,43 @@ plot_beta_diversity <- function(ps) {
     print(p)
   }
 }
+
 plot_beta_diversity(ps)
 
 
 # Beta Diversity Plot using PCoA — grouped by any metadata column
 
-plot_pcoa_diversity <- function(ps) {
+plot_pcoa_diversity <- function(ps, dist_method = "bray") {
   
-  # Create output folder if it does not exist
   if (!dir.exists("Output")) dir.create("Output")
   
-  # Extract metadata
   meta_data <- as(sample_data(ps), "data.frame")
   meta_data$SampleID <- rownames(meta_data)
   
-  # Detect metadata columns (all except SampleID)
   meta_columns <- setdiff(colnames(meta_data), "SampleID")
   
-  # Calculate distance matrix (Bray-Curtis)
-  dist <- phyloseq::distance(ps, method = "bray")
-  
-  # Run PCoA
+  dist <- phyloseq::distance(ps, method = dist_method)
   ord_pcoa <- ape::pcoa(as.matrix(dist))
-  
-  # Prepare ordination dataframe
   pcoa_df <- data.frame(ord_pcoa$vectors[, 1:2])
   colnames(pcoa_df) <- c("PCoA1", "PCoA2")
   pcoa_df$SampleID <- rownames(pcoa_df)
   
   for (meta_var in meta_columns) {
     
-    message(paste0("🚀 Generating PCoA plots grouped by '", meta_var, "'"))
+    message(paste0("Generating PCoA plots grouped by '", meta_var, "' using method ", dist_method))
     
     pcoa_df$Group <- meta_data[match(pcoa_df$SampleID, meta_data$SampleID), meta_var]
+    
+    # Calculate PERMANOVA for p-value
+    permanova_result <- adonis2(dist ~ Group, data = meta_data, permutations = 999)
+    p_value <- permanova_result$`Pr(>F)`[1]
     
     p <- ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = Group, label = SampleID)) +
       geom_point(size = 3) +
       geom_text(vjust = -0.5, hjust = 0.5) +
       stat_ellipse() +
       labs(title = paste("Beta Diversity - PCoA grouped by", meta_var),
+           subtitle = paste("PERMANOVA p =", signif(p_value, digits = 3)),
            x = "PCoA1", y = "PCoA2") +
       theme_minimal(base_size = 14)
     
@@ -372,6 +394,7 @@ plot_pcoa_diversity <- function(ps) {
     print(p)
   }
 }
+
 plot_pcoa_diversity(ps)
 
 # PERMANOVA Test
@@ -398,6 +421,7 @@ run_permanova <- function(ps) {
     print(permanova_result)
   }
 }
+
 run_permanova(ps)
 
 run_deseq2 <- function(ps) {
