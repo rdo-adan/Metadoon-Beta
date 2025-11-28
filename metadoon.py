@@ -618,7 +618,7 @@ def save_analysis_results():
             except Exception as e:
                 terminal_output.insert(tk.END, f"Error copying {file_name}: {e}\n")
 
-    # ✅ Cleanup: remove original folders and files only if saving was successful
+    # Cleanup: remove original folders and files only if saving was successful
     for folder in folders_to_copy:
         src = os.path.join(current_dir, folder)
         try:
@@ -636,7 +636,7 @@ def save_analysis_results():
             except Exception as e:
                 terminal_output.insert(tk.END, f"Error removing file {file_name}: {e}\n")
 
-    terminal_output.insert(tk.END, "✅ Results copied and original files cleaned up successfully.\n")
+    terminal_output.insert(tk.END, "Results copied and original files cleaned up successfully.\n")
 
 
 # MAIN WINDOW
