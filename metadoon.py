@@ -89,6 +89,24 @@ def configure_execution():
     canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
     canvas.configure(yscrollcommand=scrollbar.set)
 
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+
+    def _on_trackpad(event):
+        canvas.yview_scroll(int(-1*event.delta), "units")
+    canvas.bind_all("<Shift-MouseWheel>", _on_trackpad)  # Também funciona no Windows
+    
+    def on_canvas_scroll(event):
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    canvas.bind("<MouseWheel>", on_canvas_scroll)
+
+
+    def on_canvas_focus(event):
+        canvas.focus_set()
+    canvas.bind("<Enter>", on_canvas_focus)
+
     # Internal functions
     def toggle_default_chimera_db():
         if default_chimera_db_var.get() == "yes":
@@ -132,6 +150,8 @@ def configure_execution():
                 "color_palette": color_palette_combobox.get(),
                 "rarefaction_step": int(rarefaction_step_entry.get()),
                 "rarefaction_cex": float(rarefaction_cex_entry.get()),
+                "enable_rarefaction": enable_rarefaction_var.get(),
+                "rarefaction_depth": int(rarefaction_depth_entry.get()),
                 "abundance_top_n": int(abundance_top_n_entry.get()),
                 "core_top_n": int(core_top_n_entry.get())
             }
@@ -250,6 +270,22 @@ def configure_execution():
     rarefaction_cex_entry.insert(0, str(config_container.params.get("rarefaction_cex", 0.6)))
     rarefaction_cex_entry.pack(pady=5)
 
+    #rarefaction
+    ttk.Separator(scrollable_frame, orient='horizontal').pack(fill='x', pady=10)
+    ttk.Label(scrollable_frame, text="=== Rarefaction Settings ===", font=('Arial', 10, 'bold')).pack(pady=(10,5))
+    enable_rarefaction_var = tk.BooleanVar(value=config_container.params.get("enable_rarefaction", False))
+    tk.Checkbutton(scrollable_frame, text="Apply rarefaction (subsampling) to normalize data", variable=enable_rarefaction_var).pack(pady=5)
+    ttk.Label(scrollable_frame, text="Rarefaction depth (reads per sample):").pack(pady=5)
+    rarefaction_depth_entry = ttk.Entry(scrollable_frame, width=15)
+    rarefaction_depth_entry.insert(0, str(config_container.params.get("rarefaction_depth", 1000)))
+    rarefaction_depth_entry.pack(pady=5)
+    ttk.Separator(scrollable_frame, orient='horizontal').pack(fill='x', pady=10)
+
+    ttk.Label(scrollable_frame, text="Rarefaction Depth:").pack(pady=5)
+    rarefaction_depth_entry = ttk.Entry(scrollable_frame)
+    rarefaction_depth_entry.insert(0, str(config_container.params.get("rarefaction_depth", 1000)))
+    rarefaction_depth_entry.pack(pady=5)
+
     ttk.Label(scrollable_frame, text="Relative Abundance top_n:").pack(pady=5)
     abundance_top_n_entry = ttk.Entry(scrollable_frame)
     abundance_top_n_entry.insert(0, str(config_container.params.get("abundance_top_n", 15)))
@@ -261,7 +297,7 @@ def configure_execution():
     core_top_n_entry.pack(pady=5)
     
     # Button to save the configured parameters
-    save_button = ttk.Button(scrollable_frame, text="Save Parameters", command=save_parameters)
+    save_button = ttk.Button(scrollable_frame, text="Save Parameters", command=save_parameters, underline= 100, width=50, takefocus= 125)
     save_button.pack(pady=20)
 
     # Configure and display the canvas and scrollbar

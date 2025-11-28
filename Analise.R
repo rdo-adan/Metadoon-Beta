@@ -29,7 +29,8 @@ abundance_top_n <- params$abundance_top_n %||% 15
 core_top_n <- params$core_top_n %||% 30
 rarefaction_step <- params$rarefaction_step %||% 100
 rarefaction_cex <- params$rarefaction_cex %||% 0.6
-
+enable_rarefaction <- params$enable_rarefaction %||% FALSE
+rarefaction_depth <- params$rarefaction_depth %||% 1000
 get_palette <- function(palette_name) {
   switch(palette_name,
          viridis = viridis::viridis(10),
@@ -127,7 +128,41 @@ if (!taxa_are_rows(ps)) {
 vegan::rarecurve(otu, step = rarefaction_step, cex = rarefaction_cex, label = rarefaction_label)
 title("Rarefaction Curve")
 
+#rarefaction for new data
+rarefy_phyloseq <- function(ps, depth = rarefaction_depth) {
+  if (enable_rarefaction) {
+    message(paste("Applying rarefaction to depth:", depth))
+    # Verifica se todos os samples têm reads suficientes
+    min_reads <- min(sample_sums(ps))
+    if (depth > min_reads) {
+      warning(paste("Rarefaction depth", depth, "exceeds minimum sample reads (", min_reads, "). Adjusting..."))
+      depth <- min_reads
+    }
+    ps_rarefied <- rarefy_even_depth(ps, sample.size = depth, replace = TRUE)
+    message("Data rarefied successfully!")
+    return(ps_rarefied)
+  } else {
+    message("Rarefaction disabled - using original data")
+    return(ps)
+  }
+}
 
+# APLIQUE ANTES das análises principais:
+ps <- rarefy_phyloseq(ps)
+
+
+
+# Após criar o phyloseq object (ps):
+message("=== Rarefaction Settings ===")
+message(paste("Enable rarefaction:", enable_rarefaction))
+message(paste("Rarefaction depth:", rarefaction_depth))
+message(paste("Samples before rarefaction:", nsamples(ps)))
+
+# Aplicar rarefação condicional
+ps <- rarefy_phyloseq(ps, rarefaction_depth)
+
+message(paste("Samples after rarefaction:", nsamples(ps)))
+message("============================\n")
 
 
 # RElative abundance
