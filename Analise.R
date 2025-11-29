@@ -153,6 +153,7 @@ message("=== Rarefaction Settings ===")
 message(paste("Enable rarefaction:", enable_rarefaction))
 message(paste("Rarefaction depth:", rarefaction_depth))
 message(paste("Samples before rarefaction:", nsamples(ps)))
+
 # apply conditional rarefaction
 ps <- rarefy_phyloseq(ps, rarefaction_depth)
 message(paste("Samples after rarefaction:", nsamples(ps)))
@@ -204,7 +205,7 @@ plot_core_heatmap <- function(ps, taxrank, top_n = core_top_n) {
   # Normalize data to make them compositional
   ps_tax_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
   
-  # Filtrar os táxons mais prevalentes no nível especificado
+  # Filtering more relevant taxas at the specific level
   prev_table <- microbiome::prevalence(ps_tax_rel) # Calcular prevalência
   top_taxa <- names(sort(prev_table, decreasing = TRUE)[1:top_n])
   ps_top_taxa <- prune_taxa(top_taxa, ps_tax_rel)  # Manter apenas os táxons selecionados
@@ -230,7 +231,7 @@ plot_core_heatmap <- function(ps, taxrank, top_n = core_top_n) {
   print(p)
 }
 
-# Gerar heatmaps para os níveis Phylum, Class, Order, Family e Genus
+# Generate heatmaps at the taxonomy ranks; P, C, O, F, G
 for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
   plot_core_heatmap(ps, rank)
 }
@@ -245,7 +246,7 @@ plot_core_heatmap <- function(ps, taxrank, top_n = 30) {
   #aglomerate
   ps_tax <- tax_glom(ps, taxrank)
   
-  # Normalize
+  # Normalization
   ps_tax_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
   
   prev_table <- microbiome::prevalence(ps_tax_rel)
@@ -255,7 +256,7 @@ plot_core_heatmap <- function(ps, taxrank, top_n = 30) {
   tax_table(ps_top_taxa)[, taxrank] <- as.character(tax_table(ps_top_taxa)[, taxrank])
   taxa_names(ps_top_taxa) <- tax_table(ps_top_taxa)[, taxrank]
   
-  # Plot core w tax
+  # Plot core w/ tax
   p <- plot_core(ps_top_taxa, 
                  plot.type = "heatmap", 
                  prevalences = prevalences, 
@@ -446,7 +447,7 @@ run_permanova <- function(ps) {
     
     write.table(permanova_result, file = result_file, sep = "\t", col.names = NA, quote = FALSE)
     
-    message(paste0("✔️ PERMANOVA result saved for ", meta_var))
+    message(paste0("PERMANOVA result saved for ", meta_var))
     print(permanova_result)
   }
 }
@@ -485,7 +486,7 @@ run_deseq2 <- function(ps) {
   
   for (meta_var in meta_columns) {
     
-    message(paste0("🚀 Running DESeq2 for metadata variable: ", meta_var))
+    message(paste0("Running DESeq2 for metadata variable: ", meta_var))
     
     formula_deseq <- as.formula(paste("~", meta_var))
     
@@ -519,7 +520,7 @@ run_deseq2 <- function(ps) {
       
       print(p)
     } else {
-      message(paste0("⚠️ No significant taxa found for ", meta_var))
+      message(paste0("No significant taxa found for ", meta_var))
     }
   }
 }
