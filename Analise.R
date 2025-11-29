@@ -147,20 +147,14 @@ rarefy_phyloseq <- function(ps, depth = rarefaction_depth) {
   }
 }
 
-# APLIQUE ANTES das análises principais:
+#check rarefied phyloseq object
 ps <- rarefy_phyloseq(ps)
-
-
-
-# Após criar o phyloseq object (ps):
 message("=== Rarefaction Settings ===")
 message(paste("Enable rarefaction:", enable_rarefaction))
 message(paste("Rarefaction depth:", rarefaction_depth))
 message(paste("Samples before rarefaction:", nsamples(ps)))
-
-# Aplicar rarefação condicional
+# apply conditional rarefaction
 ps <- rarefy_phyloseq(ps, rarefaction_depth)
-
 message(paste("Samples after rarefaction:", nsamples(ps)))
 message("============================\n")
 
@@ -207,7 +201,7 @@ detections <- 10^seq(log10(1e-4), log10(.2), length = 10)
 plot_core_heatmap <- function(ps, taxrank, top_n = core_top_n) {
   ps_tax <- tax_glom(ps, taxrank)
   
-  # Normalizar dados para torná-los composicionais
+  # Normalize data to make them compositional
   ps_tax_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
   
   # Filtrar os táxons mais prevalentes no nível especificado
