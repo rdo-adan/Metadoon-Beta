@@ -1,3 +1,4 @@
+from datetime import datetime
 import platform
 import glob
 import json
@@ -616,25 +617,140 @@ def execute_report(loading_window):
         safe_log(f"Error: {str(e)}\n")
     finally:
         root.after(0, loading_window.close)
+def clean_workspace():
+    """
+    Remove todas as pastas e arquivos gerados pelo pipeline e limpa a interface.
+    """
+    safe_log("\n>>> Starting Workspace Cleanup...\n")
+    
+    base_dir = os.getcwd()
+    
+    # Lista exata das pastas geradas pelo pipeline
+    folders_to_remove = [
+        'Merged', 
+        'Filtered', 
+        'Dereplicated', 
+        'OTUs', 
+        'Taxonomy', 
+        'DB',           # Atenção: Isso forçará o download do banco novamente na próxima vez
+        'FullFiles', 
+        'Output', 
+        'Metadata File', 
+        'Tree File'
+    ]
+    
+    # Lista de arquivos gerados na raiz
+    files_to_remove = [
+        'pipeline_params.json',
+        'Metadoon_Report.html',
+        'Rplots.pdf',
+        '.RData',
+        '.Rhistory'
+    ]
+
+    # 1. Remover Pastas
+    for folder in folders_to_remove:
+        dir_path = os.path.join(base_dir, folder)
+        if os.path.exists(dir_path):
+            try:
+                shutil.rmtree(dir_path)
+                safe_log(f"Deleted folder: {folder}\n")
+            except Exception as e:
+                safe_log(f"Error deleting folder {folder}: {e}\n")
+
+    # 2. Remover Arquivos Soltos
+    for file in files_to_remove:
+        file_path = os.path.join(base_dir, file)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                safe_log(f"Deleted file: {file}\n")
+            except Exception as e:
+                safe_log(f"Error deleting file {file}: {e}\n")
+
+    # 3. Limpar a Interface Gráfica e Variáveis Internas
+    try:
+        # Limpa as listas internas
+        container.files.clear()
+        container.stats.clear()
+        
+        # Limpa a lista visual de arquivos (Listbox)
+        file_list.delete(0, tk.END)
+        
+        # Limpa a caixa de estatísticas
+        stats_text.config(state='normal')
+        stats_text.delete(1.0, tk.END)
+        stats_text.config(state='disabled')
+        
+        safe_log(">>> Workspace cleaned successfully. Ready for new analysis.\n")
+        
+    except Exception as e:
+        safe_log(f"Error refreshing UI: {e}\n")
 
 def save_analysis_results():
-    dest = filedialog.askdirectory(title="Select Destination Folder")
-    if dest:
-        try:
-            curr = os.getcwd()
-            targets = ['OTUs', 'Taxonomy', 'Output', 'Merged', 'Filtered', 'pipeline_params.json', 'Metadoon_Report.html']
-            for item in targets:
-                src = os.path.join(curr, item)
-                if os.path.exists(src):
-                    dst_path = os.path.join(dest, item)
-                    if os.path.isdir(src):
-                        if os.path.exists(dst_path): shutil.rmtree(dst_path)
-                        shutil.copytree(src, dst_path)
+    # 1. Seleciona a PASTA MÃE (onde a pasta de resultados será criada)
+    parent_dir = filedialog.askdirectory(title="Select Parent Folder to Save Results")
+    if not parent_dir:
+        return
+
+    try:
+        # 2. Cria um nome de pasta automático com Data e Hora para evitar sobrescrever
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        folder_name = f"Metadoon_Results_{timestamp}"
+        dest_path = os.path.join(parent_dir, folder_name)
+        
+        # 3. Cria a nova pasta
+        os.makedirs(dest_path, exist_ok=True)
+
+        terminal_output.config(state='normal')
+        terminal_output.insert(tk.END, f"\n>>> Creating result folder: {folder_name}\n")
+        terminal_output.config(state='disabled')
+        
+        curr = os.getcwd()
+        targets = ['OTUs', 'Taxonomy', 'Output', 'Merged', 'Filtered', 'pipeline_params.json', 'Metadoon_Report.html']
+        
+        saved_any = False
+        
+        for item in targets:
+            src = os.path.join(curr, item)
+            if os.path.exists(src):
+                # Define o caminho final DENTRO da nova pasta criada
+                final_dst = os.path.join(dest_path, item)
+                
+                if os.path.isdir(src):
+                    if os.path.exists(final_dst): shutil.rmtree(final_dst)
+                    shutil.copytree(src, final_dst)
+                else:
+                    shutil.copy2(src, final_dst)
+                saved_any = True
+        
+        if saved_any:
+            # Pergunta se quer limpar
+            if messagebox.askyesno("Cleanup", f"Results saved in:\n{folder_name}\n\nDo you want to clean the workspace?"):
+                clean_workspace()
+            else:
+                messagebox.showinfo("Saved", f"Results saved successfully in:\n{dest_path}")
+                # Abre a pasta criada para o usuário ver
+                try:
+                    if platform.system() == "Windows":
+                        os.startfile(dest_path)
+                    elif platform.system() == "Darwin":
+                        subprocess.Popen(["open", dest_path])
                     else:
-                        shutil.copy2(src, dst_path)
-            messagebox.showinfo("Saved", "Results saved successfully!")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save: {e}")
+                        subprocess.Popen(["xdg-open", dest_path])
+                except:
+                    pass
+        else:
+            messagebox.showwarning("Warning", "No result files were found to save.")
+            # Se não salvou nada, remove a pasta vazia criada
+            try:
+                os.rmdir(dest_path)
+            except:
+                pass
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to save: {e}")
+        print(traceback.format_exc())
 
 # --- MAIN ---
 root = tk.Tk()
