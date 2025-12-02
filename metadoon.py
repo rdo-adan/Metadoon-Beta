@@ -638,7 +638,7 @@ def save_analysis_results():
 
 # --- MAIN ---
 root = tk.Tk()
-root.title("Metadoon v1.3 - Microbiome Pipeline")
+root.title("Metadoon - Microbiome Pipeline")
 root.geometry("900x600")
 system_os = platform.system()
 if system_os == "Windows":
