@@ -2,7 +2,7 @@
 # 🧪 Metadoon
 
 <div align="center">
-  <img src="OP.png" alt="Metadoon Interface" width="800">
+  <img src="OP.png" alt="Metadoon Interface" width="50%">
 </div>
 
 
