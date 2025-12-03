@@ -403,81 +403,103 @@ run_deseq2(ps)
 
 # --- ANCOM-BC ANALYSIS ---
 run_ancombc <- function(ps) {
-  message("Starting ANCOM-BC analysis...")
   
   meta_data <- as(sample_data(ps), "data.frame")
   meta_columns <- setdiff(colnames(meta_data), "SampleID")
   
-  # Ensure taxonomy is available for plotting
-  tax_table <- as(tax_table(ps), "matrix")
-  
   for (meta_var in meta_columns) {
-    # Check for sufficient groups (at least 2 groups with data)
+    
+    # 1. First check: Do we have at least 2 groups defined?
     if (length(unique(na.omit(meta_data[[meta_var]]))) < 2) next
     
     cat(paste0("\n#### ANCOM-BC Analysis for: ", meta_var, "\n"))
     
     tryCatch({
-      # 1. Prepare data: Remove NAs for the current variable to avoid errors
-      ps_sub <- subset_samples(ps, !is.na(get(meta_var)))
       
-      # 2. Run ANCOM-BC
-      # formula: matches the metadata column name
-      # p_adj_method: Holm is robust; "fdr" is also common.
-      out <- ancombc(phyloseq = ps_sub, formula = meta_var, 
-                     p_adj_method = "holm", zero_cut = 0.90, lib_cut = 1000, 
-                     group = meta_var, struc_zero = TRUE, neg_lb = TRUE,
-                     tol = 1e-5, max_iter = 100, conserve = TRUE, 
-                     alpha = 0.05, global = TRUE)
+      # 2. Filter Groups with n < 2 (CRITICAL FIX)
+      # Calculate sample counts per group
+      group_counts <- table(meta_data[[meta_var]])
+      valid_groups <- names(group_counts[group_counts >= 2])
+      
+      # If less than 2 valid groups remain, skip analysis
+      if(length(valid_groups) < 2) {
+        cat(paste0("\n> **Skipped:** Not enough groups with replication (n >= 2). ",
+                   "Groups detected with n=1: ", 
+                   paste(names(group_counts[group_counts < 2]), collapse=", "), ".\n\n"))
+        next # Skip to next variable
+      }
+      
+      # 3. Subset data to keep only valid groups
+      # We verify if the sample belongs to a valid group
+      keep_samples <- sample_data(ps)[[meta_var]] %in% valid_groups
+      ps_sub <- prune_samples(keep_samples, ps)
+      
+      # Remove empty taxa after subsetting
+      ps_sub <- prune_taxa(taxa_sums(ps_sub) > 0, ps_sub)
+      
+      # Inform user if groups were dropped
+      dropped_groups <- setdiff(names(group_counts), valid_groups)
+      if(length(dropped_groups) > 0) {
+        cat(paste0("\n> *Note: Groups dropped due to low sample size (n<2): ", 
+                   paste(dropped_groups, collapse=", "), "*\n\n"))
+      }
+      
+      # 4. Run ANCOM-BC
+      out <- ancombc(data = ps_sub, 
+                     formula = meta_var, 
+                     p_adj_method = "holm", 
+                     lib_cut = 0, 
+                     group = meta_var, 
+                     struc_zero = TRUE, 
+                     neg_lb = TRUE,
+                     tol = 1e-5, 
+                     max_iter = 100, 
+                     conserve = TRUE, 
+                     alpha = 0.05, 
+                     global = TRUE)
       
       res <- out$res
-
+      
+      # 5. Process Results
       diff_df <- res$diff_abn
-
       sig_taxa_indices <- apply(diff_df, 1, any)
       
       if (sum(sig_taxa_indices) > 0) {
         
-
-        beta_df <- res$beta[sig_taxa_indices, , drop = FALSE]
+        beta_df <- res$lfc[sig_taxa_indices, , drop = FALSE]
         qval_df <- res$q_val[sig_taxa_indices, , drop = FALSE]
         
-
         df_plot <- data.frame(
           Taxa = rownames(beta_df),
           LogFoldChange = beta_df[,1], 
           QValue = qval_df[,1]
         )
         
-        # Sort by LFC
         df_plot <- df_plot[order(df_plot$LogFoldChange), ]
         df_plot$Taxa <- factor(df_plot$Taxa, levels = df_plot$Taxa)
         
-        # Save Tables
-        write.csv(res$beta, file.path(output_dir, paste0("ANCOMBC_beta_", meta_var, ".csv")))
-        write.csv(res$q_val, file.path(output_dir, paste0("ANCOMBC_qval_", meta_var, ".csv")))
+        write.csv(res$lfc, file.path(output_dir, paste0("ANCOMBC_lfc_", meta_var, ".csv")))
         
-        # Plot
         p <- ggplot(df_plot, aes(x = Taxa, y = LogFoldChange, fill = LogFoldChange > 0)) +
           geom_bar(stat = "identity") +
           coord_flip() +
-          labs(title = paste("ANCOM-BC Differential Abundance -", meta_var),
+          labs(title = paste("ANCOM-BC -", meta_var),
                subtitle = "Significant Taxa (Bias Corrected)",
-               x = "Taxa", y = "Log Fold Change (Bias Corrected)") +
+               x = "Taxa", y = "Log Fold Change") +
           theme_minimal() +
           scale_fill_manual(values = c("red", "blue"), labels = c("Decrease", "Increase"), name = "Direction")
         
         save_plot(p, paste0("ancombc_differential_", meta_var, ".png"))
         print(p)
         
-        message(paste("ANCOM-BC found", nrow(df_plot), "significant taxa for", meta_var))
+        cat(paste0("\n\n> **Result:** ANCOM-BC identified ", nrow(df_plot), " significant taxa.\n\n"))
         
       } else {
-        cat(paste0("\n> No significant taxa found by ANCOM-BC for ", meta_var, ".\n"))
+        cat(paste0("\n\n> No significant taxa found by ANCOM-BC for **", meta_var, "**.\n\n"))
       }
       
     }, error = function(e) {
-      message(paste("ANCOM-BC failed for", meta_var, ":", e$message))
+      cat(paste0("\n\n> **⚠️ ANCOM-BC Error for ", meta_var, ":** ", e$message, "\n\n"))
     })
   }
 }
