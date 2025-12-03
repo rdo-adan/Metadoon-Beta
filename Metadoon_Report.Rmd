@@ -537,7 +537,7 @@ Interpretation: - The pseudo-F statistic indicates the ratio of between-group to
 
 ### Deseq2:
 DESeq2 identifies taxa that are differentially abundant between sample groups based on count data. It models the counts using a negative binomial distribution and performs statistical testing to identify significant log2 fold changes between conditions.
-```{r DESeq2, include=TRUE, echo= FALSE}
+```{r deseq2-analysis, out.width="49%", fig.show='hold', fig.align='default'}
 run_deseq2 <- function(ps) {
   
   if (!dir.exists("Output")) dir.create("Output")
@@ -546,9 +546,14 @@ run_deseq2 <- function(ps) {
   meta_columns <- setdiff(colnames(meta_data), "SampleID")
   
   taxa_table <- as(tax_table(ps), "matrix")
-  tax_labels <- apply(taxa_table, 1, function(x) paste(na.omit(x[1:6]), collapse="|"))
   
-  gm_mean = function(x, na.rm=TRUE){ exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x)) }
+  # Helper to get names
+  get_tax_label <- function(tax_mat) {
+    apply(tax_mat, 1, function(x) {
+      paste(na.omit(x[c("Genus", "Family", "Order")]), collapse=";")
+    })
+  }
+  tax_labels <- get_tax_label(taxa_table)
 
   for (meta_var in meta_columns) {
     if (length(unique(meta_data[[meta_var]])) < 2) next
@@ -556,9 +561,12 @@ run_deseq2 <- function(ps) {
     cat(paste0("\n#### Analysis for: ", meta_var, "\n"))
     
     tryCatch({
+      # Convert to DESeq object
       dds <- phyloseq_to_deseq2(ps, as.formula(paste("~", meta_var)))
-      geoMeans = apply(counts(dds), 1, gm_mean)
-      estimateSizeFactors(dds, geoMeans = geoMeans)
+      
+      dds <- estimateSizeFactors(dds, type = "poscounts")
+      
+      # Run DESeq
       dds <- DESeq(dds, test = "Wald", fitType = "parametric", quiet = TRUE)
       
       res <- results(dds, cooksCutoff = FALSE)
@@ -566,6 +574,7 @@ run_deseq2 <- function(ps) {
       
       if (nrow(res_sig) > 0) {
         res_sig_df <- as.data.frame(res_sig)
+
         res_sig_df$Taxa <- rownames(res_sig_df)
         
         p <- ggplot(res_sig_df, aes(x = reorder(Taxa, log2FoldChange), y = log2FoldChange, fill = log2FoldChange > 0)) +
@@ -578,6 +587,7 @@ run_deseq2 <- function(ps) {
         
         save_plot(p, paste0("deseq2_differential_taxa_", meta_var, ".png"))
         print(p)
+        cat(paste0("\nFound ", nrow(res_sig_df), " significant taxa (padj < 0.05).\n"))
       } else {
         cat("\n> No significant taxa found (padj < 0.05) for this variable.\n") 
       }
@@ -595,36 +605,31 @@ run_deseq2(ps)
 ANCOM-BC (Analysis of Compositions of Microbiomes with Bias Correction) is a method designed to identify differentially abundant taxa while accounting for the compositional nature of microbiome data (where total counts are constrained). It estimates the unknown sampling fractions and corrects the bias introduced by differences in sequencing depth.
 
 ```{r ancombc-analysis, out.width="49%", fig.show='hold', fig.align='default', results='asis'}
-# --- ANCOM-BC ANALYSIS FUNCTION ---
 run_ancombc <- function(ps) {
   
-  # Ensure taxonomy is available
-  tax_table <- as(tax_table(ps), "matrix")
-  
   meta_data <- as(sample_data(ps), "data.frame")
-  # Filter metadata columns (remove SampleID)
   meta_columns <- setdiff(colnames(meta_data), "SampleID")
   
   for (meta_var in meta_columns) {
-    # Check for sufficient groups (at least 2 groups with data)
-    # We remove NAs to check if there are enough valid levels
+    # Check for sufficient groups
     if (length(unique(na.omit(meta_data[[meta_var]]))) < 2) next
     
-    # Print Header for the variable using Markdown syntax
     cat(paste0("\n#### ANCOM-BC Analysis for: ", meta_var, "\n"))
     
     tryCatch({
-      # 1. Prepare data: Remove NAs for the current variable to avoid errors
-      ps_sub <- subset_samples(ps, !is.na(get(meta_var)))
+      # --- CORREÇÃO CRÍTICA PARA ERRO DE 'get' ---
+      # Removemos NAs sem usar get(). Acessamos a coluna diretamente no sample_data
+      keep_samples <- !is.na(sample_data(ps)[[meta_var]])
+      ps_sub <- prune_samples(keep_samples, ps)
       
-      # Prune taxa that are not present in any of the remaining samples
+      # Remove taxa vazios após o subset
       ps_sub <- prune_taxa(taxa_sums(ps_sub) > 0, ps_sub)
       
-      # 2. Run ANCOM-BC
-      # Using standard parameters suitable for microbiome data
-      out <- ancombc(phyloseq = ps_sub, formula = meta_var, 
+      # Run ANCOM-BC
+      out <- ancombc(phyloseq = ps_sub, 
+                     formula = meta_var, # Pass string name directly
                      p_adj_method = "holm", 
-                     lib_cut = 0, # Set to 0 to avoid dropping small libraries if rarefaction wasn't used
+                     lib_cut = 0, 
                      group = meta_var, 
                      struc_zero = TRUE, 
                      neg_lb = TRUE,
@@ -635,37 +640,25 @@ run_ancombc <- function(ps) {
                      global = TRUE)
       
       res <- out$res
-      
-      # 3. Process Results
-      # 'diff_abn' contains TRUE/FALSE for significance
       diff_df <- res$diff_abn
-      
-      # Find taxa that are significant in at least one contrast
       sig_taxa_indices <- apply(diff_df, 1, any)
       
       if (sum(sig_taxa_indices) > 0) {
         
-        # Extract Beta (Effect Size) and Q-values
         beta_df <- res$beta[sig_taxa_indices, , drop = FALSE]
         qval_df <- res$q_val[sig_taxa_indices, , drop = FALSE]
         
-        # Prepare Plot Data
-        # We visualize the primary contrast (first column of coefficients)
         df_plot <- data.frame(
           Taxa = rownames(beta_df),
           LogFoldChange = beta_df[,1], 
           QValue = qval_df[,1]
         )
         
-        # Sort by LFC for better visualization
         df_plot <- df_plot[order(df_plot$LogFoldChange), ]
         df_plot$Taxa <- factor(df_plot$Taxa, levels = df_plot$Taxa)
         
-        # Save Tables (Silently)
         write.csv(res$beta, file.path(output_dir, paste0("ANCOMBC_beta_", meta_var, ".csv")))
-        write.csv(res$q_val, file.path(output_dir, paste0("ANCOMBC_qval_", meta_var, ".csv")))
         
-        # Plot
         p <- ggplot(df_plot, aes(x = Taxa, y = LogFoldChange, fill = LogFoldChange > 0)) +
           geom_bar(stat = "identity") +
           coord_flip() +
@@ -677,24 +670,19 @@ run_ancombc <- function(ps) {
         
         save_plot(p, paste0("ancombc_differential_", meta_var, ".png"))
         print(p)
-        
-        cat(paste0("\n\n> **Result:** ANCOM-BC identified ", nrow(df_plot), " significant taxa (adjusted p < 0.05).\n\n"))
+        cat(paste0("\n\n> **Result:** ANCOM-BC identified ", nrow(df_plot), " significant taxa.\n\n"))
         
       } else {
-        cat(paste0("\n\n> No significant taxa found by ANCOM-BC for **", meta_var, "** (padj < 0.05).\n\n"))
+        cat(paste0("\n\n> No significant taxa found by ANCOM-BC for **", meta_var, "**.\n\n"))
       }
       
     }, error = function(e) {
-      # This ensures the error is visible in the report
       cat(paste0("\n\n> **⚠️ ANCOM-BC Error for ", meta_var, ":** ", e$message, "\n\n"))
     })
   }
 }
 
-# Run the function
 run_ancombc(ps)
-
-
 
 ```
 
