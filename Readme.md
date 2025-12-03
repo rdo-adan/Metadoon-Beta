@@ -121,7 +121,7 @@ We provide launcher scripts to simplify installation and execution without typin
 
    ```bash
    git clone https://github.com/rdo-adan/metadoon.git
-   cd metadoon
+   cd Metadoon
    ```
 
 2. *Create the Conda environment:*
