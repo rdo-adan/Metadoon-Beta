@@ -30,8 +30,8 @@ if (file.exists(params_file)) {
 }
 
 # Assign variables with fallbacks
-stat_test <- params$stat_test %||% "anova"
-dist_method <- params$dist_method %||% "bray"
+stat_test <- "kruskal.test"  # Default non-parametric test for Alpha Diversity
+dist_method <- "bray"        # Default distance for Beta Diversity
 color_palette <- params$color_palette %||% "viridis"
 abundance_top_n <- params$abundance_top_n %||% 15
 core_top_n <- params$core_top_n %||% 30

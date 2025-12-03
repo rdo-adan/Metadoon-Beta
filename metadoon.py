@@ -37,12 +37,10 @@ class LoadingWindow:
         self.top.geometry("350x120")
         self.top.resizable(False, False)
         
-        # Center window
         x = parent.winfo_x() + (parent.winfo_width() // 2) - 175
         y = parent.winfo_y() + (parent.winfo_height() // 2) - 60
         self.top.geometry(f"+{x}+{y}")
 
-        # Block parent window
         self.top.transient(parent)
         self.top.grab_set() 
 
@@ -74,12 +72,13 @@ def _insert_log(text):
 # --- CONFIG MANAGER ---
 class ConfigContainer:
     def __init__(self):
-        # Defaults aligned with R script
+        # REMOVED: stat_test and dist_method (Fixed in R)
         self.params = {
             "threads": 1,
             "fastq_maxdiffs": 30,
             "fastq_maxee": 1.0,
             "minuniquesize": 2,
+            "clustering_method": "otu", 
             "id": 0.97,
             "sintax_cutoff": 0.8,
             "strand": "both",
@@ -87,9 +86,6 @@ class ConfigContainer:
             "chimera_db": "",
             "16s_db_option": "rdp",
             "custom_16s_db": "",
-            # New parameters for R
-            "stat_test": "anova",
-            "dist_method": "bray",
             "color_palette": "viridis",
             "rarefaction_step": 100,
             "rarefaction_cex": 0.6,
@@ -129,7 +125,7 @@ config_container = ConfigContainer()
 def configure_execution():
     config_window = tk.Toplevel()
     config_window.title("Configure Execution")
-    config_window.geometry("450x600")
+    config_window.geometry("450x650")
     config_window.resizable(True, True)
 
     main_frame = tk.Frame(config_window)
@@ -143,7 +139,7 @@ def configure_execution():
     canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
     canvas.configure(yscrollcommand=scrollbar.set)
 
-    # --- SCROLL HANDLING ---
+    # Scroll Handling
     def _on_mousewheel(event):
         try: canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         except tk.TclError: pass
@@ -161,7 +157,6 @@ def configure_execution():
     config_window.bind_all("<Button-5>", _on_linux_scroll_down)
 
     def on_close():
-        # Unbind to prevent "invalid command name" errors when window closes
         config_window.unbind_all("<MouseWheel>")
         config_window.unbind_all("<Button-4>")
         config_window.unbind_all("<Button-5>")
@@ -194,11 +189,14 @@ def configure_execution():
 
     def save_parameters():
         try:
+            cluster_map = {"OTU (Cluster 97%)": "otu", "ASV (Denoising/Unoising)": "asv"}
+            
             params = {
                 "threads": int(treads.get()),
                 "fastq_maxdiffs": int(max_diffs_entry.get()),
                 "fastq_maxee": float(max_ee_entry.get()),
                 "minuniquesize": int(min_unique_size_entry.get()),
+                "clustering_method": cluster_map.get(cluster_method_combobox.get(), "otu"),
                 "id": float(id_entry.get()),
                 "sintax_cutoff": float(sintax_cutoff_entry.get()),
                 "strand": strand_option.get(),
@@ -206,8 +204,7 @@ def configure_execution():
                 "chimera_db": config_container.params.get("chimera_db", ""),
                 "16s_db_option": config_container.params.get("16s_db_option", "rdp"),
                 "custom_16s_db": config_container.params.get("custom_16s_db", ""),
-                "stat_test": stat_test_combobox.get(),
-                "dist_method": dist_method_combobox.get(),
+                # Removed stat_test and dist_method
                 "color_palette": color_palette_combobox.get(),
                 "rarefaction_step": int(rarefaction_step_entry.get()),
                 "rarefaction_cex": float(rarefaction_cex_entry.get()),
@@ -226,10 +223,8 @@ def configure_execution():
             base_dir = os.getcwd()
             metadata_dir = os.path.join(base_dir, 'Metadata File')
             os.makedirs(metadata_dir, exist_ok=True)
-            # Clean old metadata
             for f in os.listdir(metadata_dir): os.remove(os.path.join(metadata_dir, f))
             shutil.copy(files[0], metadata_dir)
-            
             if 'terminal_output' in globals():
                 try:
                     terminal_output.config(state='normal')
@@ -243,11 +238,9 @@ def configure_execution():
             base_dir = os.getcwd()
             tree_dir = os.path.join(base_dir, 'Tree File')
             os.makedirs(tree_dir, exist_ok=True)
-            # Clean old tree
             for f in os.listdir(tree_dir): os.remove(os.path.join(tree_dir, f))
             dest_path = os.path.join(tree_dir, "tree.nwk")
             shutil.copy(files[0], dest_path)
-            
             if 'terminal_output' in globals():
                 try:
                     terminal_output.config(state='normal')
@@ -278,7 +271,16 @@ def configure_execution():
     min_unique_size_entry.insert(0, config_container.params.get("minuniquesize", 2))
     min_unique_size_entry.pack(pady=2)
 
-    ttk.Label(scrollable_frame, text="Identity % (0.0-1.0):").pack()
+    ttk.Label(scrollable_frame, text="Analysis Type (Clustering):", font=('Arial', 9, 'bold')).pack(pady=(10,2))
+    cluster_method_combobox = ttk.Combobox(scrollable_frame, values=["OTU (Cluster 97%)", "ASV (Denoising/Unoising)"], state="readonly")
+    current_method = config_container.params.get("clustering_method", "otu")
+    if current_method == "asv":
+        cluster_method_combobox.set("ASV (Denoising/Unoising)")
+    else:
+        cluster_method_combobox.set("OTU (Cluster 97%)")
+    cluster_method_combobox.pack(pady=2)
+
+    ttk.Label(scrollable_frame, text="Identity % (Only for OTU):").pack()
     id_entry = ttk.Entry(scrollable_frame)
     id_entry.insert(0, config_container.params.get("id", 0.97))
     id_entry.pack(pady=2)
@@ -315,15 +317,7 @@ def configure_execution():
     ttk.Separator(scrollable_frame, orient='horizontal').pack(fill='x', pady=10)
     ttk.Label(scrollable_frame, text="--- R Analysis Parameters ---", font=('Arial', 9, 'bold')).pack(pady=5)
 
-    ttk.Label(scrollable_frame, text="Statistical Test:").pack()
-    stat_test_combobox = ttk.Combobox(scrollable_frame, values=["t-test", "ANOVA", "Wilcoxon", "Kruskal"], state="readonly")
-    stat_test_combobox.set(config_container.params.get("stat_test", "ANOVA"))
-    stat_test_combobox.pack(pady=2)
-
-    ttk.Label(scrollable_frame, text="Beta Diversity Distance:").pack()
-    dist_method_combobox = ttk.Combobox(scrollable_frame, values=["bray", "jaccard", "euclidean", "manhattan"], state="readonly")
-    dist_method_combobox.set(config_container.params.get("dist_method", "bray"))
-    dist_method_combobox.pack(pady=2)
+    # REMOVED STAT TEST AND DIST METHOD SELECTORS
 
     ttk.Label(scrollable_frame, text="Color Palette:").pack()
     color_palette_combobox = ttk.Combobox(scrollable_frame, values=["viridis", "plasma", "inferno", "magma", "cividis", "wesanderson", "RColorBrewer"], state="readonly")
@@ -414,37 +408,12 @@ def open_file():
 
 # --- WORKSPACE CLEANUP ---
 def clean_workspace():
-    """
-    Removes all folders and files generated by the pipeline and clears the UI.
-    """
     safe_log("\n>>> Starting Workspace Cleanup...\n")
-    
     base_dir = os.getcwd()
     
-    # List of folders generated by the pipeline
-    folders_to_remove = [
-        'Merged', 
-        'Filtered', 
-        'Dereplicated', 
-        'OTUs', 
-        'Taxonomy', 
-        'DB',
-        'FullFiles', 
-        'Output', 
-        'Metadata File', 
-        'Tree File'
-    ]
-    
-    # List of files generated in root
-    files_to_remove = [
-        'pipeline_params.json',
-        'Metadoon_Report.html',
-        'Rplots.pdf',
-        '.RData',
-        '.Rhistory'
-    ]
+    folders_to_remove = ['Merged', 'Filtered', 'Dereplicated', 'OTUs', 'Taxonomy', 'DB', 'FullFiles', 'Output', 'Metadata File', 'Tree File']
+    files_to_remove = ['pipeline_params.json', 'Metadoon_Report.html', 'Rplots.pdf', '.RData', '.Rhistory']
 
-    # 1. Remove Folders
     for folder in folders_to_remove:
         dir_path = os.path.join(base_dir, folder)
         if os.path.exists(dir_path):
@@ -454,7 +423,6 @@ def clean_workspace():
             except Exception as e:
                 safe_log(f"Error deleting folder {folder}: {e}\n")
 
-    # 2. Remove Files
     for file in files_to_remove:
         file_path = os.path.join(base_dir, file)
         if os.path.exists(file_path):
@@ -464,7 +432,6 @@ def clean_workspace():
             except Exception as e:
                 safe_log(f"Error deleting file {file}: {e}\n")
 
-    # 3. Clear UI
     try:
         container.files.clear()
         container.stats.clear()
@@ -569,12 +536,35 @@ def execute_pipeline(loading_window):
         all_derep = os.path.join(base_dir, 'Dereplicated', 'all_derep.fasta')
         subprocess.run(["vsearch", "--derep_fulllength", all_filtered, "--output", all_derep, "--sizeout"], check=True, stderr=subprocess.DEVNULL)
 
-        # Cluster
-        loading_window.update_text("Clustering OTUs...")
-        safe_log("Clustering OTUs...\n")
-        time.sleep(0.5)
+        # --- CLUSTERING OR DENOISING ---
         centroids = os.path.join(base_dir, 'OTUs', 'centroids.fasta')
-        subprocess.run(["vsearch", "--cluster_size", all_derep, "--id", str(params['id']), "--centroids", centroids, "--sizein", "--sizeout", "--relabel", "OTU_"], check=True, stderr=subprocess.DEVNULL)
+        method = params.get("clustering_method", "otu")
+
+        if method == "asv":
+            loading_window.update_text("Denoising (Generating ASVs)...")
+            safe_log("Denoising sequences (Unoising) to generate ASVs...\n")
+            time.sleep(0.5)
+            
+            subprocess.run([
+                "vsearch", "--cluster_unoise", all_derep,
+                "--centroids", centroids,
+                "--minsize", str(params['minuniquesize']),
+                "--sizein", "--sizeout",
+                "--relabel", "ASV_"
+            ], check=True, stderr=subprocess.DEVNULL)
+            
+        else:
+            loading_window.update_text("Clustering OTUs (97%)...")
+            safe_log("Clustering OTUs (97% Identity)...\n")
+            time.sleep(0.5)
+            
+            subprocess.run([
+                "vsearch", "--cluster_size", all_derep, 
+                "--id", str(params['id']), 
+                "--centroids", centroids, 
+                "--sizein", "--sizeout", 
+                "--relabel", "OTU_"
+            ], check=True, stderr=subprocess.DEVNULL)
 
         # Chimera
         loading_window.update_text("Removing Chimeras...")
@@ -588,8 +578,8 @@ def execute_pipeline(loading_window):
         subprocess.run(["vsearch", "--uchime_ref", denovo_nonchim, "--db", chimera_db, "--nonchimeras", final_otus], check=True, stderr=subprocess.DEVNULL)
 
         # OTU Table
-        loading_window.update_text("Generating OTU Table...")
-        safe_log("Generating OTU Table...\n")
+        loading_window.update_text("Generating Abundance Table...")
+        safe_log("Generating Abundance Table...\n")
         time.sleep(0.5)
         otutab = os.path.join(base_dir, 'OTUs', 'otutab.txt')
         subprocess.run(["vsearch", "--usearch_global", all_filtered, "--db", final_otus, "--id", str(params['id']), "--otutabout", otutab], check=True, stderr=subprocess.DEVNULL)
@@ -607,7 +597,7 @@ def execute_pipeline(loading_window):
             "--strand", params['strand']
         ], check=True, stderr=subprocess.DEVNULL)
 
-        # --- CRITICAL FIX: CLEAN TAXONOMY FILE ---
+        # --- CLEAN TAXONOMY FILE ---
         safe_log("Formatting Taxonomy Table...\n")
         header = "OTU ID\tKingdom\tPhylum\tClass\tOrder\tFamily\tGenus\tSpecies\n"
         
@@ -615,7 +605,7 @@ def execute_pipeline(loading_window):
             outfile.write(header)
             for line in infile:
                 parts = line.strip().split('\t')
-                otu_id = parts[0].split(';')[0] # Fix OTU ID
+                otu_id = parts[0].split(';')[0]
                 
                 if len(parts) >= 2:
                     tax_str = parts[1]
@@ -733,7 +723,7 @@ def save_analysis_results():
 # --- MAIN ---
 root = tk.Tk()
 root.title("Metadoon v1.3 - Microbiome Pipeline")
-root.geometry("900x600")
+root.geometry("900x650")
 system_os = platform.system()
 if system_os == "Windows":
     root.iconbitmap("Metadoon.ico")
