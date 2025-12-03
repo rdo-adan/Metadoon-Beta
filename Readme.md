@@ -62,7 +62,9 @@ devtools::install_github("microbiome/microbiome")
 | `conda`, `mamba`                                         | *Environment management*            |
 | `Rscript`                                                | *Execute R scripts via CLI*         |
 | `libcurl`, `libxml2`                                     | *R package compilation*             |
+| pandoc                                                   | Report generation (HTML)            |
 | `openssl`, `zlib`, `gcc`, `make`, `libuv`, `gmp`, `mpfr` | *System/compiler libraries*         |
+	
 
 > *On macOS, **XQuartz** may be required for full R graphical support.*
 
@@ -81,6 +83,40 @@ devtools::install_github("microbiome/microbiome")
 
 > ⚠️ *Note: All required folders such as `Output/`, `Metadata/`, `OTUs/`, `Taxonomy/`, and `Tree File/` are automatically created during the pipeline execution if they do not exist.*
 
+# Option 1: Using Easy Launchers (Recommended for Non-Technical Users)
+We provide launcher scripts to simplify installation and execution without typing commands manually.
+
+> Download and Extract:
+
+- Download the repository as a ZIP file or clone it.
+
+- Extract the folder to a location of your choice.
+
+> Install Dependencies:
+
+- Open the Installers/ folder.
+
+- Windows: Double-click Windows_Install.bat.
+
+- macOS: Double-click MacOS_Install.command.
+
+- Linux: Open a terminal and run bash Linux_Install.sh.
+
+- Wait for the installation to complete (this may take a few minutes).
+
+> Run Metadoon:
+
+- Open the Run/ folder.
+
+- Windows: Double-click Windows_Run.bat.
+
+- macOS: Double-click MacOS_Run.command.
+
+- Linux: Run bash Linux_Run.sh.
+
+-- The graphical interface will open automatically.
+
+# Option 2: Using Command Line (Advanced)
 1. *Clone this repository:*
 
    ```bash
@@ -110,29 +146,29 @@ devtools::install_github("microbiome/microbiome")
 ## ⚙️ Pipeline Workflow
 Metadoon executes a standard amplicon analysis workflow:
 
-Merge Pairs: Merges R1 and R2 FASTQ files using VSEARCH.
+- Merge Pairs: Merges R1 and R2 FASTQ files using VSEARCH.
 
-Quality Filter: Filters reads based on maximum expected error (fastq_maxee).
+- Quality Filter: Filters reads based on maximum expected error (fastq_maxee).
 
-Dereplication: Identifies unique sequences to reduce computational load.
+- Dereplication: Identifies unique sequences to reduce computational load.
 
-Clustering: Clusters sequences into OTUs (default 97% identity).
+-- Clustering: Clusters sequences into OTUs (default 97% identity)/ ASV (ZOTU): Performs denoising (unoising) to resolve exact biological sequences.
 
-Chimera Removal: Removes chimeric sequences using both de novo and Reference-based detection.
+- Chimera Removal: Removes chimeric sequences using both de novo and Reference-based detection.
 
-Taxonomy Assignment: Assigns taxonomy using the SINTAX algorithm.
+- Taxonomy Assignment: Assigns taxonomy using the SINTAX algorithm.
 
-Statistical Analysis (R):
+- Statistical Analysis (R):
 
-Rarefaction curves.
+- Rarefaction curves.
 
-Alpha & Beta Diversity metrics.
+- Alpha & Beta Diversity metrics.
 
-Core Microbiome analysis.
+- Core Microbiome analysis.
 
-Differential Abundance (DESeq2).
+- Differential Abundance (DESeq2).
 
-Analysis of Compositions of Microbiomes with Bias Correction (ANCOM-BC).
+- Analysis of Compositions of Microbiomes with Bias Correction (ANCOM-BC).
 
 ## *📁 Project Structure*
 Before run:
@@ -145,7 +181,22 @@ Metadoon/
 ├── Metadoon_Report.Rmd      # RMarkdown template
 ├── pipeline_params.json     # Configuration file
 ├── metadoon_env.yaml        # Conda environment definition
-└── setup.sh                 # Installation script
+├── setup.sh                 # Installation script
+├── LICENSE                  # License file
+├── Readme.md                # Project documentation
+├── *.png, *.ico, *.icns     # Icons and GUI assets
+│
+├── Installers/              # Scripts to install dependencies easily
+│   ├── Windows_Install.bat
+│   ├── MacOS_Install.command
+│   └── Linux_Install.sh
+│
+├── Run/                     # Scripts to launch the tool easily
+│   ├── Windows_Run.bat
+│   ├── MacOS_Run.command
+│   └── Linux_Run.sh
+│
+└── Example_Data.txt           # Links to Download Small dataset for testing the tool
 ```
 After Run
 ```
@@ -161,9 +212,9 @@ Metadoon/
 ├── Dereplicated/            # Unique sequences (dereplication)
 │
 ├── OTUs/                    # Clustering results
-│   ├── centroids.fasta      # OTU representative sequences
-│   ├── otus.fasta           # Final OTUs (non-chimeric)
-│   └── otutab.txt           # OTU abundance table
+│   ├── centroids.fasta      # Representative sequences
+│   ├── otus.fasta           # Final OTUs/ASVs (non-chimeric)
+│   └── otutab.txt           # Abundance table
 │
 ├── Taxonomy/                # Taxonomic classification results
 │   ├── taxonomy_raw.txt     # Raw output from SINTAX
@@ -171,32 +222,51 @@ Metadoon/
 │
 └── Output/                  # FINAL RESULTS
     ├── Plots (Alpha/Beta diversity, Heatmaps, Rarefaction)
-    ├── Statistical Tables (DESeq2, PERMANOVA)
+    ├── Statistical Tables (DESeq2, ANCOM-BC, PERMANOVA)
     └── Metadoon_Report.html # Complete HTML Summary
+│
+├── metadoon.py              # Main GUI script (Python)
+├── Analise.R                # Statistical analysis script (R)
+├── generate_report.R        # Report generation script
+├── Metadoon_Report.Rmd      # RMarkdown template
+├── pipeline_params.json     # Configuration file
+├── metadoon_env.yaml        # Conda environment definition
+├── setup.sh                 # Installation script
+├── LICENSE                  # License file
+├── Readme.md                # Project documentation
+├── *.png, *.ico, *.icns     # Icons and GUI assets
+│
+├── Installers/              # Scripts to install dependencies easily
+│   ├── Windows_Install.bat
+│   ├── MacOS_Install.command
+│   └── Linux_Install.sh
+│
+├── Run/                     # Scripts to launch the tool easily
+│   ├── Windows_Run.bat
+│   ├── MacOS_Run.command
+│   └── Linux_Run.sh
+│
+└── Example_Data.txt           # Links to Download Small dataset for testing the tool
 ```
 ---
 
 ## *🗒️ How to Generate the Final Report
-Inside the Metadoon interface, go to the "Tools" menu.
+- Inside the Metadoon interface; Click "Generate Report".
 
-Click "Generate Final Report".
+- This will run the R script that creates a complete report with all plots, alpha and beta diversity results, PERMANOVA, DESeq2 outputs, and summary.
 
-This will run the R script that creates a complete report with all plots, alpha and beta diversity results, PERMANOVA, DESeq2 outputs, and summary.
-
-The report will be saved in the root folder as Metadoon_Report.html.
+- The report will be saved in the root folder as Metadoon_Report.html.
 
 ## *💾 How to Save All Results
-Inside the interface, go to "Tools".
+- Inside the interface, Click "Save Results".
 
-Click "Save and Clean Results".
+- You will be prompted to select a destination folder.
 
-You will be prompted to select a destination folder.
+- Metadoon will create a new folder named Metadoon_Results_YYYY-MM-DD_HH-MM-SS inside your selected directory.
 
-Metadoon will create a new folder named Metadoon_Results_YYYY-MM-DD_HH-MM-SS inside your selected directory.
+- It copies all critical outputs (Output/, OTUs/, Taxonomy/, Reports) to this safe location.
 
-It copies all critical outputs (Output/, OTUs/, Taxonomy/, Reports) to this safe location.
-
-Optional Cleanup: After saving, the tool will ask if you want to delete the generated workspace folders (Merged, Filtered, DB, etc.) to free up disk space.
+- Optional Cleanup: After saving, the tool will ask if you want to delete the generated workspace folders (Merged, Filtered, DB, etc.) to free up disk space.
 
 ---
 
