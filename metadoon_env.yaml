@@ -60,4 +60,5 @@ dependencies:
   - bioconductor-phyloseq>=1.46
   - bioconductor-deseq2>=1.42
   - bioconductor-scater>=1.30
-  - bioconductor-microbiome>=1.24 # CRITICAL: For Core Microbiome analysis
+  - bioconductor-microbiome>=1.24
+  - bioconductor-ancombc>=2.4
