@@ -44,8 +44,7 @@ All packages listed below are automatically installed by the Conda environment.
 * phyloseq, DESeq2, scater
 
 ### *🔧 GitHub Packages (installed post-env)*
-
-```r
+# *R
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 devtools::install_github("vlubitch/pairwiseAdonis")
 devtools::install_github("microbiome/microbiome")
