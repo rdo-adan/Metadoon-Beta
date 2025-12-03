@@ -1,6 +1,10 @@
 # 🧪 Metadoon
+# 🧪 Metadoon
 
-![Metadoon Interface](OP.png)
+<div align="center">
+  <img src="OP.png" alt="Metadoon Interface" width="50%">
+</div>
+
 
 ***Metadoon*** is a user-friendly graphical interface and pipeline designed for processing and analyzing amplicon-based metagenomic data using tools like VSEARCH and R (with Phyloseq). It automates the workflow from FASTQ preprocessing to statistical visualization in R.
 
@@ -127,6 +131,8 @@ Alpha & Beta Diversity metrics.
 Core Microbiome analysis.
 
 Differential Abundance (DESeq2).
+
+Analysis of Compositions of Microbiomes with Bias Correction (ANCOM-BC).
 
 ## *📁 Project Structure*
 Before run:
