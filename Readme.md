@@ -1,19 +1,19 @@
 # 🧪 Metadoon
-# 🧪 Metadoon
 
 <div align="center">
   <img src="OP.png" alt="Metadoon Interface" width="50%">
 </div>
 
+***Metadoon*** is a user-friendly graphical interface and pipeline designed for processing and analyzing amplicon-based metagenomic data using tools like **VSEARCH** and **R** (with Phyloseq). It automates the workflow from FASTQ preprocessing to statistical visualization in R.
 
-***Metadoon*** is a user-friendly graphical interface and pipeline designed for processing and analyzing amplicon-based metagenomic data using tools like VSEARCH and R (with Phyloseq). It automates the workflow from FASTQ preprocessing to statistical visualization in R.
+> 🪟 **WINDOWS USERS:** To ensure stability and reproducibility, Metadoon requires **[WSL 2 (Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl/install)** and **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**. Native Windows execution is not supported due to dependency constraints.
 
 ---
 
 ## *📦 Major Dependencies*
 
 | *Dependency* | *Version (Suggested)* | *Description* |
-| --------------------------------------------------------- | --------------------- | ---------------------------------------------- |
+| :--- | :--- | :--- |
 | *[Python](https://www.python.org/downloads/)* | *3.12+* | *Main interface (Tkinter GUI, logic control)* |
 | *[R](https://cran.r-project.org/)* | *4.4.3* | *Statistical analysis and plotting* |
 | *[VSEARCH](https://github.com/torognes/vsearch/releases)* | *≥ 2.21.1* | *FASTQ processing (dereplication, clustering)* |
@@ -25,7 +25,7 @@
 *These packages are included in the Conda environment:*
 
 | *Package* | *Purpose* |
-| ---------- | ------------------------------------------------------ |
+| :--- | :--- |
 | *`tkinter`*| *GUI interface (Standard Python Library)* |
 | *`Pillow`* | *Icon/image handling in Python* |
 
@@ -48,36 +48,11 @@ All packages listed below are automatically installed by the Conda environment.
 * phyloseq, DESeq2, scater
 
 ### *🔧 GitHub Packages (installed post-env)*
-# R
+```r
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 devtools::install_github("vlubitch/pairwiseAdonis")
 devtools::install_github("microbiome/microbiome")
-## *🛠️ System-Level Dependencies*
-
-*These are installed via Conda or available on Unix-based systems:*
-
-| *Tool/Library*                                           | *Description*                       |
-| -------------------------------------------------------- | ----------------------------------- |
-| `bash`, `wget`                                           | *Script automation and downloading* |
-| `conda`, `mamba`                                         | *Environment management*            |
-| `Rscript`                                                | *Execute R scripts via CLI*         |
-| `libcurl`, `libxml2`                                     | *R package compilation*             |
-| pandoc                                                   | Report generation (HTML)            |
-| `openssl`, `zlib`, `gcc`, `make`, `libuv`, `gmp`, `mpfr` | *System/compiler libraries*         |
-	
-
-> *On macOS, **XQuartz** may be required for full R graphical support.*
-
----
-
-## *🔗 Download Links*
-
-* [Python](https://www.python.org/downloads/)
-* [R](https://cran.r-project.org/)
-* [VSEARCH](https://github.com/torognes/vsearch/releases)
-* [Conda (recommended)](https://docs.conda.io/en/latest/)
-
----
+🛠️ System-Level DependenciesThese are installed via Conda or available on Unix-based systems:Tool/LibraryDescriptionbash, wgetScript automation and downloadingconda, mambaEnvironment managementRscriptExecute R scripts via CLIpandocReport generation (HTML)libcurl, libxml2R package compilationopenssl, zlib, gccSystem/compiler librariesDocker & WSL 2REQUIRED for Windows OS (Containerization)On macOS, XQuartz may be required for full R graphical support.🔗 Download LinksPythonRVSEARCHConda (recommended)For Windows: Docker Desktop | WSL 2 Guide
 
 ## *🚀 Installation & Usage*
 
