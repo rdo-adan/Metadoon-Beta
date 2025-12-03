@@ -49,10 +49,11 @@ All packages listed below are automatically installed by the Conda environment.
 
 ### *🔧 GitHub Packages (installed post-env)*
 
+```r
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 devtools::install_github("vlubitch/pairwiseAdonis")
 devtools::install_github("microbiome/microbiome")
-🛠️ System-Level DependenciesThese are installed via Conda or available on Unix-based systems:Tool/LibraryDescriptionbash, wgetScript automation and downloadingconda, mambaEnvironment managementRscriptExecute R scripts via CLIpandocReport generation (HTML)libcurl, libxml2R package compilationopenssl, zlib, gccSystem/compiler librariesDocker & WSL 2REQUIRED for Windows OS (Containerization)On macOS, XQuartz may be required for full R graphical support.🔗 Download LinksPythonRVSEARCHConda (recommended)For Windows: Docker Desktop | WSL 2 Guide
+```
 
 ## *🚀 Installation & Usage*
 
