@@ -128,6 +128,8 @@ Core Microbiome analysis.
 
 Differential Abundance (DESeq2).
 
+Analysis of Compositions of Microbiomes with Bias Correction (ANCOM-BC).
+
 ## *📁 Project Structure*
 Before run:
 ```
