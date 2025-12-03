@@ -187,12 +187,10 @@ Metadoon/
 ├── *.png, *.ico, *.icns     # Icons and GUI assets
 │
 ├── Installers/              # Scripts to install dependencies easily
-│   ├── Windows_Install.bat
 │   ├── MacOS_Install.command
 │   └── Linux_Install.sh
 │
 ├── Run/                     # Scripts to launch the tool easily
-│   ├── Windows_Run.bat
 │   ├── MacOS_Run.command
 │   └── Linux_Run.sh
 │
@@ -237,12 +235,10 @@ Metadoon/
 ├── *.png, *.ico, *.icns     # Icons and GUI assets
 │
 ├── Installers/              # Scripts to install dependencies easily
-│   ├── Windows_Install.bat
 │   ├── MacOS_Install.command
 │   └── Linux_Install.sh
 │
 ├── Run/                     # Scripts to launch the tool easily
-│   ├── Windows_Run.bat
 │   ├── MacOS_Run.command
 │   └── Linux_Run.sh
 │
