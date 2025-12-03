@@ -44,8 +44,7 @@ All packages listed below are automatically installed by the Conda environment.
 * phyloseq, DESeq2, scater
 
 ### *🔧 GitHub Packages (installed post-env)*
-
-```r
+# R
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 devtools::install_github("vlubitch/pairwiseAdonis")
 devtools::install_github("microbiome/microbiome")
@@ -104,7 +103,7 @@ devtools::install_github("microbiome/microbiome")
    ```
 
 ---
-## *⚙️ Pipeline Workflow
+## ⚙️ Pipeline Workflow
 Metadoon executes a standard amplicon analysis workflow:
 
 Merge Pairs: Merges R1 and R2 FASTQ files using VSEARCH.
