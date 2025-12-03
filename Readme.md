@@ -1,16 +1,18 @@
 # 🧪 Metadoon
 
+![Metadoon Interface](OP.png)
+
 ***Metadoon*** is a user-friendly graphical interface and pipeline designed for processing and analyzing amplicon-based metagenomic data using tools like VSEARCH and R (with Phyloseq). It automates the workflow from FASTQ preprocessing to statistical visualization in R.
 
 ---
 
 ## *📦 Major Dependencies*
 
-| *Dependency*                                              | *Version (Suggested)* | *Description*                                  |
+| *Dependency* | *Version (Suggested)* | *Description* |
 | --------------------------------------------------------- | --------------------- | ---------------------------------------------- |
-| *[Python](https://www.python.org/downloads/)*             | *3.12+*               | *Main interface (Tkinter GUI, logic control)*  |
-| *[R](https://cran.r-project.org/)*                        | *4.4.3*               | *Statistical analysis and plotting*            |
-| *[VSEARCH](https://github.com/torognes/vsearch/releases)* | *≥ 2.21.1*            | *FASTQ processing (dereplication, clustering)* |
+| *[Python](https://www.python.org/downloads/)* | *3.12+* | *Main interface (Tkinter GUI, logic control)* |
+| *[R](https://cran.r-project.org/)* | *4.4.3* | *Statistical analysis and plotting* |
+| *[VSEARCH](https://github.com/torognes/vsearch/releases)* | *≥ 2.21.1* | *FASTQ processing (dereplication, clustering)* |
 
 ---
 
@@ -18,12 +20,12 @@
 
 *These packages are included in the Conda environment:*
 
-| *Package*  | *Purpose*                       |
-| ---------- | ------------------------------- |
-| *`tk`*     | *GUI interface with Tkinter*    |
-| *`pillow`* | *Icon/image handling in Python* |
+| *Package* | *Purpose* |
+| ---------- | ------------------------------------------------------ |
+| *`tkinter`*| *GUI interface (Standard Python Library)* |
+| *`Pillow`* | *Icon/image handling in Python* |
 
-> \*Standard libraries used: **`os`**, **`sys`**, **`json`**, **`threading`**, **`subprocess`**
+> \*Standard libraries used: **`os`**, **`sys`**, **`json`**, **`threading`**, **`subprocess`**, **`shutil`**, **`glob`**, **`datetime`**
 
 ---
 
@@ -35,7 +37,7 @@ All packages listed below are automatically installed by the Conda environment.
 
 * tidyverse, reshape2, igraph, foreach, lme4
 * ggplot2, ggpubr, cowplot, dplyr, pheatmap, viridis
-* ape, rprojroot
+* ape, rprojroot, wesanderson, RColorBrewer
 
 ### *🧪 Bioconductor Packages*
 
@@ -47,10 +49,6 @@ All packages listed below are automatically installed by the Conda environment.
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
 devtools::install_github("vlubitch/pairwiseAdonis")
 devtools::install_github("microbiome/microbiome")
-```
-
----
-
 ## *🛠️ System-Level Dependencies*
 
 *These are installed via Conda or available on Unix-based systems:*
@@ -106,50 +104,94 @@ devtools::install_github("microbiome/microbiome")
    ```
 
 ---
+## *⚙️ Pipeline Workflow
+Metadoon executes a standard amplicon analysis workflow:
+
+Merge Pairs: Merges R1 and R2 FASTQ files using VSEARCH.
+
+Quality Filter: Filters reads based on maximum expected error (fastq_maxee).
+
+Dereplication: Identifies unique sequences to reduce computational load.
+
+Clustering: Clusters sequences into OTUs (default 97% identity).
+
+Chimera Removal: Removes chimeric sequences using both de novo and Reference-based detection.
+
+Taxonomy Assignment: Assigns taxonomy using the SINTAX algorithm.
+
+Statistical Analysis (R):
+
+Rarefaction curves.
+
+Alpha & Beta Diversity metrics.
+
+Core Microbiome analysis.
+
+Differential Abundance (DESeq2).
 
 ## *📁 Project Structure*
-
+Before run:
 ```
 Metadoon/
 │
-├── metadoon.py               # Main GUI script
-├── Analise.R                  # R script for data analysis
-├── generate_report.R          # Script to generate the final report
-├── Metadoon_Report.Rmd        # RMarkdown template for the report
-├── Metadoon-Beta.Rproj        # RStudio project file
-├── metadoon_env.yaml          # Conda environment file
-├── setup.sh                   # Environment setup script
-├── LICENSE                    # License file
-├── Readme.md                  # Project documentation
-├── *.png, *.ico, *.icns       # Icons and GUI assets
-│
-├── Metadata/                  # Folder for metadata files
-├── OTUs/                      # Folder for OTU tables
-├── Taxonomy/                  # Folder for taxonomy files
-├── Tree File/                 # Folder for phylogenetic tree files
-├── Output/                    # Folder for generated results, plots, reports, tables, and the final report (HTML)
+├── metadoon.py              # Main GUI script (Python)
+├── Analise.R                # Statistical analysis script (R)
+├── generate_report.R        # Report generation script
+├── Metadoon_Report.Rmd      # RMarkdown template
+├── pipeline_params.json     # Configuration file
+├── metadoon_env.yaml        # Conda environment definition
+└── setup.sh                 # Installation script
 ```
-
+After Run
+```
+Metadoon/
+│
+├── DB/                      # Downloaded reference databases (RDP, Silva, etc.)
+├── Metadata File/           # Stores the uploaded metadata file
+├── Tree File/               # Stores the phylogenetic tree (if provided)
+│
+├── Merged/                  # Paired-end reads merged by VSEARCH
+├── FullFiles/               # Concatenated merged reads
+├── Filtered/                # Quality filtered sequences
+├── Dereplicated/            # Unique sequences (dereplication)
+│
+├── OTUs/                    # Clustering results
+│   ├── centroids.fasta      # OTU representative sequences
+│   ├── otus.fasta           # Final OTUs (non-chimeric)
+│   └── otutab.txt           # OTU abundance table
+│
+├── Taxonomy/                # Taxonomic classification results
+│   ├── taxonomy_raw.txt     # Raw output from SINTAX
+│   └── taxonomy.txt         # Cleaned taxonomy table for R
+│
+└── Output/                  # FINAL RESULTS
+    ├── Plots (Alpha/Beta diversity, Heatmaps, Rarefaction)
+    ├── Statistical Tables (DESeq2, PERMANOVA)
+    └── Metadoon_Report.html # Complete HTML Summary
+```
 ---
 
-## *🗒️ How to Generate the Final Report*
+## *🗒️ How to Generate the Final Report
+Inside the Metadoon interface, go to the "Tools" menu.
 
-- Inside the Metadoon interface, go to the **"Tools"** menu.
-- Click **"Generate Final Report"**.
-- This will run the R script that creates a complete report with all plots, alpha and beta diversity results, PERMANOVA, DESeq2 outputs, and summary.
-- The report will be saved in the **Output/** folder as an HTML file.
+Click "Generate Final Report".
 
-## *💾 How to Save All Results to a Separate Folder*
+This will run the R script that creates a complete report with all plots, alpha and beta diversity results, PERMANOVA, DESeq2 outputs, and summary.
 
-- Inside the interface, go to **"Tools"**.
-- Click **"Save and Clean Results"**.
-- You will be prompted to select a folder where you want to save the results.
-- Metadoon will move:
-  - The **Output/** folder (containing all plots, tables, reports)
-  - The parameter file **pipeline_params.json**
-  - The **Rplots.pdf** file if generated
-  - The **final report in HTML format**
-- Once copied, the Output folder inside the project will be cleared.
+The report will be saved in the root folder as Metadoon_Report.html.
+
+## *💾 How to Save All Results
+Inside the interface, go to "Tools".
+
+Click "Save and Clean Results".
+
+You will be prompted to select a destination folder.
+
+Metadoon will create a new folder named Metadoon_Results_YYYY-MM-DD_HH-MM-SS inside your selected directory.
+
+It copies all critical outputs (Output/, OTUs/, Taxonomy/, Reports) to this safe location.
+
+Optional Cleanup: After saving, the tool will ask if you want to delete the generated workspace folders (Merged, Filtered, DB, etc.) to free up disk space.
 
 ---
 
