@@ -204,7 +204,6 @@ def configure_execution():
                 "chimera_db": config_container.params.get("chimera_db", ""),
                 "16s_db_option": config_container.params.get("16s_db_option", "rdp"),
                 "custom_16s_db": config_container.params.get("custom_16s_db", ""),
-                # Removed stat_test and dist_method
                 "color_palette": color_palette_combobox.get(),
                 "rarefaction_step": int(rarefaction_step_entry.get()),
                 "rarefaction_cex": float(rarefaction_cex_entry.get()),
