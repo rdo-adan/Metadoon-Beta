@@ -1,205 +1,146 @@
-# 🧪 Metadoon
-# 🧪 Metadoon
+# 🧪 Metadoon - Docker Edition
 
 <div align="center">
-  <img src="OP.png" alt="Metadoon Interface" width="50%">
+  <img src="OP.png" alt="Metadoon Interface" width="600">
 </div>
 
+***Metadoon*** is a user-friendly graphical interface and pipeline designed for processing and analyzing amplicon-based metagenomic data using tools like **VSEARCH** and **R** (with Phyloseq). It automates the workflow from FASTQ preprocessing to robust statistical visualization in R.
 
-***Metadoon*** is a user-friendly graphical interface and pipeline designed for processing and analyzing amplicon-based metagenomic data using tools like VSEARCH and R (with Phyloseq). It automates the workflow from FASTQ preprocessing to statistical visualization in R.
-
----
-
-## *📦 Major Dependencies*
-
-| *Dependency* | *Version (Suggested)* | *Description* |
-| --------------------------------------------------------- | --------------------- | ---------------------------------------------- |
-| *[Python](https://www.python.org/downloads/)* | *3.12+* | *Main interface (Tkinter GUI, logic control)* |
-| *[R](https://cran.r-project.org/)* | *4.4.3* | *Statistical analysis and plotting* |
-| *[VSEARCH](https://github.com/torognes/vsearch/releases)* | *≥ 2.21.1* | *FASTQ processing (dereplication, clustering)* |
+### 🐳 **DOCKER VERSION**
+This version runs in a fully containerized environment with all dependencies pre-installed. No need to install Python, R, VSEARCH, or any libraries manually. Compatible with **Linux** and **Windows** (via WSL2).
 
 ---
 
-## *🐍 Python Dependencies (minor)*
+## *📦 What's Included in the Docker Image*
 
-*These packages are included in the Conda environment:*
+All major and minor dependencies are pre-installed:
 
-| *Package* | *Purpose* |
-| ---------- | ------------------------------------------------------ |
-| *`tkinter`*| *GUI interface (Standard Python Library)* |
-| *`Pillow`* | *Icon/image handling in Python* |
+| Component | Version | Purpose |
+| :--- | :--- | :--- |
+| **Python** | 3.10 | GUI interface (Tkinter) and pipeline logic |
+| **R** | Latest | Statistical analysis and plotting |
+| **VSEARCH** | ≥ 2.21.1 | FASTQ processing (merge, filter, cluster) |
+| **Pillow** | Latest | Image handling in Python |
 
-> \*Standard libraries used: **`os`**, **`sys`**, **`json`**, **`threading`**, **`subprocess`**, **`shutil`**, **`glob`**, **`datetime`**
-
----
-
-## *📊 R Dependencies (minor)*
-
-All packages listed below are automatically installed by the Conda environment.
-
-### *📦 CRAN Packages*
-
-* tidyverse, reshape2, igraph, foreach, lme4
-* ggplot2, ggpubr, cowplot, dplyr, pheatmap, viridis
-* ape, rprojroot, wesanderson, RColorBrewer
-
-### *🧪 Bioconductor Packages*
-
-* phyloseq, DESeq2, scater
-
-### *🔧 GitHub Packages (installed post-env)*
-# R
-if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
-devtools::install_github("vlubitch/pairwiseAdonis")
-devtools::install_github("microbiome/microbiome")
-## *🛠️ System-Level Dependencies*
-
-*These are installed via Conda or available on Unix-based systems:*
-
-| *Tool/Library*                                           | *Description*                       |
-| -------------------------------------------------------- | ----------------------------------- |
-| `bash`, `wget`                                           | *Script automation and downloading* |
-| `conda`, `mamba`                                         | *Environment management*            |
-| `Rscript`                                                | *Execute R scripts via CLI*         |
-| `libcurl`, `libxml2`                                     | *R package compilation*             |
-| pandoc                                                   | Report generation (HTML)            |
-| `openssl`, `zlib`, `gcc`, `make`, `libuv`, `gmp`, `mpfr` | *System/compiler libraries*         |
-	
-
-> *On macOS, **XQuartz** may be required for full R graphical support.*
-
----
-
-## *🔗 Download Links*
-
-* [Python](https://www.python.org/downloads/)
-* [R](https://cran.r-project.org/)
-* [VSEARCH](https://github.com/torognes/vsearch/releases)
-* [Conda (recommended)](https://docs.conda.io/en/latest/)
+### *📊 R Packages (Pre-installed)*
+* **CRAN:** `tidyverse`, `ggplot2`, `ggpubr`, `pheatmap`, `viridis`, `ape`, `RColorBrewer`, and more.
+* **Bioconductor:** `phyloseq`, `DESeq2`, `scater`, `ANCOMBC`, `microbiome`.
+* **GitHub:** `pairwiseAdonis`.
 
 ---
 
 ## *🚀 Installation & Usage*
 
-> ⚠️ *Note: All required folders such as `Output/`, `Metadata/`, `OTUs/`, `Taxonomy/`, and `Tree File/` are automatically created during the pipeline execution if they do not exist.*
+You can run Metadoon using **Docker (Recommended)** or via **Native Installation (Conda)**.
 
-# Option 1: Using Easy Launchers (Recommended for Non-Technical Users)
-We provide launcher scripts to simplify installation and execution without typing commands manually.
+### *Option 1: Docker Container (Recommended & Cross-Platform)*
+This method runs Metadoon in an isolated container. It works on **Linux**, **Windows (via WSL2)**, and **macOS**. No need to install R, Python, or VSEARCH manually.
 
-> Download and Extract:
+#### **Prerequisites**
+1.  **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** installed and running.
+2.  **Windows Users:** Ensure **[WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install)** is installed and Docker is configured to use it.
+3.  **Graphics Support:**
+    * *Linux:* Usually works out of the box.
+    * *Windows:* WSL 2 usually handles graphics (WSLg). If not, use an XServer like **VcXsrv**.
+    * *macOS:* Install **[XQuartz](https://www.xquartz.org/)** and allow network connections.
 
-- Download the repository as a ZIP file or clone it.
+#### **How to Run**
+1.  Download this repository.
+2.  Open the `Run/` folder.
+3.  Double-click (or run in terminal) the script for your OS:
+    * 🪟 **Windows:** `Windows_Run.bat`
+    * 🐧 **Linux:** `Linux_Run.sh`
+    * 🍎 **macOS:** `MacOS_Run.command`
 
-- Extract the folder to a location of your choice.
-
-> Install Dependencies:
-
-- Open the Installers/ folder.
-
-- Windows: Double-click Windows_Install.bat.
-
-- macOS: Double-click MacOS_Install.command.
-
-- Linux: Open a terminal and run bash Linux_Install.sh.
-
-- Wait for the installation to complete (this may take a few minutes).
-
-> Run Metadoon:
-
-- Open the Run/ folder.
-
-- Windows: Double-click Windows_Run.bat.
-
-- macOS: Double-click MacOS_Run.command.
-
-- Linux: Run bash Linux_Run.sh.
-
--- The graphical interface will open automatically.
-
-# Option 2: Using Command Line (Advanced)
-1. *Clone this repository:*
-
-   ```bash
-   git clone https://github.com/rdo-adan/Metadoon.git
-   cd Metadoon
-   ```
-
-2. *Create the Conda environment:*
-
-   ```bash
-   bash setup.sh
-   ```
-
-3. *Activate the Conda environment:*
-
-   ```bash
-   conda activate metadoon
-   ```
-
-4. *Run the GUI:*
-
-   ```bash
-   python metadoon.py
-   ```
+> **ℹ️ Under the Hood:** These scripts automatically build the image (if missing) and execute the following command to map your files and display the GUI:
+> ```bash
+> xhost +local:docker
+> ```
+> ```bash
+> docker run --rm -it \ --user $(id -u):$(id -g) \ -e DISPLAY=$DISPLAY \ v /tmp/.X11-unix:/tmp/.X11-unix \ -v "$(pwd)":/workspace:rw \ -v "$HOME":/host_home:ro \ metadoon
+> ```
 
 ---
-## ⚙️ Pipeline Workflow
+
+### *Option 2: Native Installation (Linux Only)*
+This is the "classic" method using Conda. It is recommended primarily for **Linux** users who prefer running tools natively without Docker.
+
+#### **Prerequisites**
+* **Conda** (Anaconda or Miniconda) installed.
+
+#### **Step-by-Step**
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/rdo-adan/metadoon.git](https://github.com/rdo-adan/metadoon.git)
+    cd metadoon
+    ```
+
+2.  **Run the Setup Script:**
+    This script creates the `metadoon` environment and installs all dependencies (Python, R, VSEARCH, Libraries).
+    ```bash
+    bash setup.sh
+    ```
+
+3.  **Activate and Run:**
+    ```bash
+    conda activate metadoon
+    python metadoon.py
+    ```
+
+---
+
+## *⚙️ Pipeline Workflow*
+
 Metadoon executes a standard amplicon analysis workflow:
 
-- Merge Pairs: Merges R1 and R2 FASTQ files using VSEARCH.
+1.  **Merge Pairs:** Merges R1 and R2 FASTQ files using VSEARCH.
+2.  **Quality Filter:** Filters reads based on maximum expected error (`fastq_maxee`).
+3.  **Dereplication:** Identifies unique sequences to reduce computational load.
+4.  **Clustering / Denoising:**
+    * **OTU:** Clusters sequences at 97% identity.
+    * **ASV (ZOTU):** Performs denoising (unoising) to resolve exact biological sequences.
+5.  **Chimera Removal:** Removes chimeric sequences using both *de novo* and Reference-based detection.
+6.  **Taxonomy Assignment:** Assigns taxonomy using the SINTAX algorithm.
+7.  **Statistical Analysis (R):**
+    * **Rarefaction:** Curves to assess sequencing depth.
+    * **Alpha Diversity:** Richness/Evenness metrics with Kruskal-Wallis/ANOVA tests.
+    * **Beta Diversity:** NMDS/PCoA plots with PERMANOVA statistics.
+    * **Differential Abundance:** Significant taxa identified by **DESeq2** and **ANCOM-BC** (robust to compositional bias).
 
-- Quality Filter: Filters reads based on maximum expected error (fastq_maxee).
-
-- Dereplication: Identifies unique sequences to reduce computational load.
-
--- Clustering: Clusters sequences into OTUs (default 97% identity)/ ASV (ZOTU): Performs denoising (unoising) to resolve exact biological sequences.
-
-- Chimera Removal: Removes chimeric sequences using both de novo and Reference-based detection.
-
-- Taxonomy Assignment: Assigns taxonomy using the SINTAX algorithm.
-
-- Statistical Analysis (R):
-
-- Rarefaction curves.
-
-- Alpha & Beta Diversity metrics.
-
-- Core Microbiome analysis.
-
-- Differential Abundance (DESeq2).
-
-- Analysis of Compositions of Microbiomes with Bias Correction (ANCOM-BC).
+---
 
 ## *📁 Project Structure*
-Before run:
-```
+
+Metadoon automatically manages file organization. Below is the structure before and after execution:
+
+### *Core Files (Before Run)*
+```text
 Metadoon/
 │
-├── metadoon.py              # Main GUI script (Python)
+├── metadoon.py              # Main GUI script
 ├── Analise.R                # Statistical analysis script (R)
 ├── generate_report.R        # Report generation script
 ├── Metadoon_Report.Rmd      # RMarkdown template
+├── Dockerfile               # Docker configuration
 ├── pipeline_params.json     # Configuration file
 ├── metadoon_env.yaml        # Conda environment definition
-├── setup.sh                 # Installation script
+├── setup.sh                 # Native installation script (Linux)
 ├── LICENSE                  # License file
 ├── Readme.md                # Project documentation
-├── *.png, *.ico, *.icns     # Icons and GUI assets
 │
-├── Installers/              # Scripts to install dependencies easily
-│   ├── Windows_Install.bat
-│   ├── MacOS_Install.command
-│   └── Linux_Install.sh
-│
-├── Run/                     # Scripts to launch the tool easily
+├── Run/                     # Launcher scripts for Docker (All OS)
 │   ├── Windows_Run.bat
 │   ├── MacOS_Run.command
 │   └── Linux_Run.sh
 │
-└── Example_Data.txt           # Links to Download Small dataset for testing the tool
+└── Example_Data.txt            # Links to Download a Small dataset for testing
+
 ```
-After Run
-```
+
+### *Generated Directories (After Run)*
+Once the pipeline runs, Metadoon creates specific folders to organize the workflow:
+
+```text
 Metadoon/
 │
 ├── DB/                      # Downloaded reference databases (RDP, Silva, etc.)
@@ -224,125 +165,55 @@ Metadoon/
     ├── Plots (Alpha/Beta diversity, Heatmaps, Rarefaction)
     ├── Statistical Tables (DESeq2, ANCOM-BC, PERMANOVA)
     └── Metadoon_Report.html # Complete HTML Summary
-│
-├── metadoon.py              # Main GUI script (Python)
-├── Analise.R                # Statistical analysis script (R)
-├── generate_report.R        # Report generation script
-├── Metadoon_Report.Rmd      # RMarkdown template
-├── pipeline_params.json     # Configuration file
-├── metadoon_env.yaml        # Conda environment definition
-├── setup.sh                 # Installation script
-├── LICENSE                  # License file
-├── Readme.md                # Project documentation
-├── *.png, *.ico, *.icns     # Icons and GUI assets
-│
-├── Installers/              # Scripts to install dependencies easily
-│   ├── Windows_Install.bat
-│   ├── MacOS_Install.command
-│   └── Linux_Install.sh
-│
-├── Run/                     # Scripts to launch the tool easily
-│   ├── Windows_Run.bat
-│   ├── MacOS_Run.command
-│   └── Linux_Run.sh
-│
-└── Example_Data.txt           # Links to Download Small dataset for testing the tool
 ```
+
 ---
-## *🗒️ How to Run the Pipeline
-## *🏃 How to Run the Pipeline*
 
-### *⚠️ Input Data Requirements (Read Carefully)*
+## *📁 Input Data Requirements*
 
-Before running Metadoon, ensure your files meet the following criteria to avoid errors:
-
-1.  **Sequencing Platform:** Currently, Metadoon only supports **Illumina Paired-End** sequencing data (Forward and Reverse reads).
-2.  **File Format:** Files must be in **`.fastq`** format.
-3.  **Naming Convention:**
-    * Files **must** contain `_R1_` (for forward) and `_R2_` (for reverse) identifiers to be recognized by the merger script.
-    * **Sample Naming:** It is highly recommended to rename your files using a `Sample-Replica` structure before the R1/R2 tag.
+### *⚠️ Critical Requirements*
+* **Platform:** Illumina Paired-End sequencing only.
+* **Format:** `.fastq` files.
+* **Naming Convention:**
+    * Must contain `_R1_` (forward) and `_R2_` (reverse).
+    * **Recommended:** `Sample-Replica_R1.fastq` format.
     * *Example:* `M1-S1_R1.fastq` and `M1-S1_R2.fastq`.
-4.  **⛔ File Naming Caution:**
-    * **Avoid using extra hyphens (`-`)** or special characters in your sample names (e.g., avoid `Sample-Group-A-1_R1.fastq`).
-    * Excessive hyphens can interfere with how R and some plotting libraries interpret group names.
-    * **Recommended:** Use underscores (`_`) or alphanumeric characters for complex names (e.g., `SampleGroupA_1_R1.fastq`).
+* **⛔ Avoid:**
+    * Extra hyphens in sample names.
+    * Special characters.
+    * Use underscores (`_`) for complex names.
 
 ---
 
-### *🖥️ Step-by-Step Execution*
+## *🗒️ How to Generate the Final Report*
 
-1.  **Load FASTQ Files:**
-    * Click on **"1. Load FASTQ Files"**.
-    * Navigate to your data folder.
-    * Select **all** your `.fastq` files (both R1 and R2) at once and click "Open".
-    * The files will appear in the "Loaded Files" list on the right.
+1.  **Run Pipeline:** Ensure you have loaded FASTQ files and clicked "RUN PIPELINE". Wait for the "Pipeline Finished" message.
+2.  **Generate:** Go to the **"Tools"** menu > Click **"Generate Final Report"**.
+3.  **View:** The `Metadoon_Report.html` will be created in the root folder and opened automatically.
 
-2.  **Configure Parameters:**
-    * Click on **"2. Configure Parameters"**.
-    * Adjust the processing settings according to your data needs (see the *Configuration Parameters Explained* section below for details).
-    * **Clustering Method:** Choose between **OTU** (classic) or **ASV** (modern/denoising).
-    * Click **"Save Parameters"** and close the window.
+## *💾 How to Save All Results*
 
-3.  **Run the Pipeline:**
-    * Click the blue button **"3. RUN PIPELINE"**.
-    * A processing window will appear. **Do not close the application.**
-    * You can monitor the progress in the "Pipeline Log" terminal at the bottom right.
-    * Wait for the message: *"Pipeline Finished"*.
-
-4.  **Analyze & Report:**
-    * Once the pipeline finishes, click **"4. Generate Report"** to view the HTML summary.
+1.  **Save:** Go to **"Tools"** > Click **"Save and Clean Results"**.
+2.  **Select Folder:** Choose a destination directory.
+3.  **Automatic Organization:** Metadoon creates a timestamped folder (e.g., `Metadoon_Results_2025-10-20_14-30`) containing all critical outputs.
+4.  **Cleanup:** You can choose to automatically delete the working directories (`Merged`, `Filtered`, etc.) to free up space.
 
 ---
 
-### *⚙️ Configuration Parameters Explained*
+## *⚙️ Configuration Parameters Explained*
 
 In the **"Configure Parameters"** window, you can fine-tune how Metadoon processes your data.
 
-#### **1. General VSEARCH Parameters**
-* **Threads:** The number of CPU cores to use. Higher values speed up processing.
-* **Max Diffs (Merge):** Maximum number of mismatched bases allowed in the overlap region when merging R1 and R2 reads. Default is `30`.
-* **Max EE (Filter):** "Maximum Expected Error". A quality filtering threshold. Reads with a cumulative error probability higher than this value are discarded. Lower values (e.g., `0.5` or `1.0`) are stricter and produce higher quality data.
-* **Min Unique Size:** Minimum abundance for a sequence to be kept during dereplication. Default is `2` (removes singletons, which are often sequencing errors).
-* **Analysis Type (Clustering):**
-    * **OTU (Cluster 97%):** Traditional method grouping sequences with 97% similarity. Good for general diversity trends.
-    * **ASV (Denoising/Unoising):** Uses a denoising algorithm to resolve single-nucleotide differences (ZOTUs). Provides higher resolution and accuracy.
-* **Identity %:** The similarity threshold for OTU clustering (ignored if ASV is selected). Default is `0.97`.
-* **SINTAX Cutoff:** Confidence threshold for taxonomic assignment (0.0 to 1.0). Default `0.8` means only classifications with ≥80% confidence are kept.
-* **Strand:** Direction of reads to consider for taxonomy (`plus` or `both`). `both` is safer if orientation is unknown.
-
-#### **2. Reference Databases**
-* **Chimera DB:** Database used to detect and remove chimeric sequences (PCR artifacts). Default is `RDP Gold`.
-* **16S Database:** Reference database for taxonomy assignment.
-    * **RDP:** General purpose 16S database.
-    * **Greengenes2:** Updated database aligned with genomic trees.
-    * **Custom:** Allows you to upload your own `.fasta` database (e.g., Silva).
-
-#### **3. R Analysis Parameters**
-* **Color Palette:** Selects the color scheme for all plots (e.g., `viridis`, `plasma`, `magma`). These are color-blind friendly.
-* **Rarefaction Settings:**
-    * **Enable Rarefaction:** If checked, subsamples all libraries to the same depth (normalizes uneven sequencing effort).
-    * **Depth:** The number of reads to subsample per sample (e.g., `1000`). Samples below this count are discarded.
-* **Plot Limits (Top N):**
-    * **Abundance Top N:** Number of most abundant taxa to show in bar plots (e.g., `15`).
-    * **Core Top N:** Number of taxa to display in Core Microbiome heatmaps.
-
-## *🗒️ How to Generate the Final Report
-- Inside the Metadoon interface; Click "Generate Report".
-
-- This will run the R script that creates a complete report with all plots, alpha and beta diversity results, PERMANOVA, DESeq2 outputs, and summary.
-
-- The report will be saved in the root folder as Metadoon_Report.html.
-
-## *💾 How to Save All Results
-- Inside the interface, Click "Save Results".
-
-- You will be prompted to select a destination folder.
-
-- Metadoon will create a new folder named Metadoon_Results_YYYY-MM-DD_HH-MM-SS inside your selected directory.
-
-- It copies all critical outputs (Output/, OTUs/, Taxonomy/, Reports) to this safe location.
-
-- Optional Cleanup: After saving, the tool will ask if you want to delete the generated workspace folders (Merged, Filtered, DB, etc.) to free up disk space.
+* **Threads:** The number of CPU cores to use.
+* **Max Diffs (Merge):** Maximum mismatches allowed in overlap region (Default: `30`).
+* **Max EE (Filter):** "Maximum Expected Error". Lower values (e.g., `1.0`) are stricter.
+* **Min Unique Size:** Minimum abundance to keep a sequence (Default: `2`).
+* **Analysis Type:**
+    * **OTU:** 97% clustering.
+    * **ASV:** Denoising/Unoising (High resolution).
+* **Identity %:** Similarity threshold for OTU (ignored for ASV).
+* **SINTAX Cutoff:** Taxonomy confidence (Default `0.8`).
+* **Databases:** Supports RDP, Greengenes2, and Custom databases.
 
 ---
 
