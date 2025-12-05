@@ -1,60 +1,54 @@
-@echo off
-TITLE Metadoon Launcher (WSLg Mode)
-setlocal enabledelayedexpansion
+#!/bin/bash
 
-:: --- CONFIGURAÇÃO ---
-set IMAGE_NAME=engbio/metadoon:v1.0
+# Image Configuration
+IMAGE_NAME="engbio/metadoon:v1.0"
 
-echo ==========================================
-echo      Metadoon (Docker via WSLg)
-echo ==========================================
+# Ensure the script runs from the project root
+cd "$(dirname "$0")/.."
 
-:: 1. Verifica se o Docker está rodando
-docker info >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Docker is not running. Please start Docker Desktop.
-    pause
-    exit /b
-)
+echo "=========================================="
+echo "      Metadoon Launcher (Linux)           "
+echo "=========================================="
 
-:: 2. Navega para a raiz do projeto
-cd /d "%~dp0.."
+# 1. Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    echo "[ERROR] Docker not found. Please install Docker first."
+    echo "Try: sudo apt install docker.io"
+    read -p "Press Enter to exit..."
+    exit 1
+fi
 
-:: 3. Converte o caminho atual do Windows (C:\...) para WSL (/mnt/c/...)
-:: Isso é necessário porque vamos rodar o comando "dentro" do Linux
-for /f "usebackq tokens=*" %%a in (`wsl wslpath -a "%cd%"`) do set WSL_CURRENT_DIR=%%a
+# 2. Pull/Update the image
+echo "[INFO] Checking for updates ($IMAGE_NAME)..."
+docker pull $IMAGE_NAME
 
-:: 4. Baixa/Atualiza a imagem
-echo.
-echo [INFO] Checking for updates...
-docker pull %IMAGE_NAME%
+# Check if image exists (fallback if pull fails due to offline status)
+if [[ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]]; then
+    echo "[ERROR] Image not found locally and download failed."
+    read -p "Press Enter to exit..."
+    exit 1
+fi
 
-:: 5. Executa o Container usando WSLg (Sem VcXsrv)
-echo.
-echo [INFO] Launching Metadoon...
-echo [INFO] Using Windows Native Graphics (WSLg)...
+# 3. Configure X11 Display permissions
+echo "[INFO] Configuring Display..."
+xhost +local:docker > /dev/null 2>&1
 
-:: O TRUQUE ESTÁ AQUI:
-:: Usamos 'wsl -e' para rodar o docker DE DENTRO do Linux.
-:: Mapeamos /tmp/.X11-unix e /mnt/wslg para usar o gráfico nativo do Windows.
+# 4. Run Container
+# --user: Runs with current user ID (prevents root-locked output files)
+# -v /tmp/.X11-unix: Maps native X11 socket for GUI
+# -w /app: Sets working directory inside container
+echo "[INFO] Launching..."
 
-wsl -e docker run --rm -it ^
-  -v /tmp/.X11-unix:/tmp/.X11-unix ^
-  -v /mnt/wslg:/mnt/wslg ^
-  -e DISPLAY=:0 ^
-  -e WAYLAND_DISPLAY=wayland-0 ^
-  -e XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir ^
-  -v "%WSL_CURRENT_DIR%":/app ^
-  -w /app ^
-  %IMAGE_NAME%
+docker run --rm -it \
+  --user $(id -u):$(id -g) \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v "$(pwd)":/app \
+  -v "$HOME":/host_home:ro \
+  -w /app \
+  $IMAGE_NAME
 
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Execution failed.
-    echo.
-    echo Troubleshooting:
-    echo 1. Ensure you have Windows 10 Build 19044+ or Windows 11.
-    echo 2. Ensure 'wsl --update' has been run in PowerShell.
-    echo 3. Docker Desktop must have 'Use WSL 2 based engine' enabled.
-    pause
-)
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Execution failed."
+    read -p "Press Enter to exit..."
+fi

@@ -2,14 +2,14 @@
 TITLE Metadoon Launcher (WSLg Mode)
 setlocal enabledelayedexpansion
 
-:: --- CONFIGURAÇÃO ---
+:: --- CONFIGURATION ---
 set IMAGE_NAME=engbio/metadoon:v1.0
 
 echo ==========================================
 echo      Metadoon (Docker via WSLg)
 echo ==========================================
 
-:: 1. Verifica se o Docker está rodando
+:: 1. Check if Docker is running
 docker info >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Docker is not running. Please start Docker Desktop.
@@ -17,26 +17,26 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-:: 2. Navega para a raiz do projeto
+:: 2. Navigate to project root
 cd /d "%~dp0.."
 
-:: 3. Converte o caminho atual do Windows (C:\...) para WSL (/mnt/c/...)
-:: Isso é necessário porque vamos rodar o comando "dentro" do Linux
+:: 3. Convert current Windows path (C:\...) to WSL path (/mnt/c/...)
+:: This is required because we are running the command "inside" WSL context
 for /f "usebackq tokens=*" %%a in (`wsl wslpath -a "%cd%"`) do set WSL_CURRENT_DIR=%%a
 
-:: 4. Baixa/Atualiza a imagem
+:: 4. Pull/Update the image
 echo.
 echo [INFO] Checking for updates...
 docker pull %IMAGE_NAME%
 
-:: 5. Executa o Container usando WSLg (Sem VcXsrv)
+:: 5. Run Container using WSLg (Native Windows Graphics)
 echo.
 echo [INFO] Launching Metadoon...
 echo [INFO] Using Windows Native Graphics (WSLg)...
 
-:: O TRUQUE ESTÁ AQUI:
-:: Usamos 'wsl -e' para rodar o docker DE DENTRO do Linux.
-:: Mapeamos /tmp/.X11-unix e /mnt/wslg para usar o gráfico nativo do Windows.
+:: THE TRICK:
+:: We use 'wsl -e' to run the docker command FROM WITHIN Linux (WSL).
+:: We map /tmp/.X11-unix and /mnt/wslg to utilize Windows 11 native graphics.
 
 wsl -e docker run --rm -it ^
   -v /tmp/.X11-unix:/tmp/.X11-unix ^
