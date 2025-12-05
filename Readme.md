@@ -177,6 +177,7 @@ Metadoon/
     * Must contain `_R1_` (forward) and `_R2_` (reverse).
     * **Recommended:** `Sample-Replica_R1.fastq` format.
     * *Example:* `M1-S1_R1.fastq` and `M1-S1_R2.fastq`.
+    * Try aways to Use your Metadata file un tsv format.
 * **⛔ Avoid:**
     * Extra hyphens in sample names.
     * Special characters.
