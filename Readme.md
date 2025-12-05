@@ -187,21 +187,17 @@ Metadoon/
 ---
 ### *📂 Windows Users: How to Find Your Files (Docker)*
 
-When running via Docker on Windows, the "Load Files" window shows the **Linux Container** file system, not your standard Windows Explorer. Don't panic! We have created shortcuts to your Windows files.
+When running via Docker on Windows, the file selection window works slightly differently. We have created a shortcut to make it easy to find your Windows files.
 
-**Where are my files?**
+**Steps to Load Files:**
 
-1.  Click **"Load FASTQ Files"**.
-2.  In the file selection window, navigate to the **Root Directory** (often represented by a `/` or "File System").
-3.  Look for these two specific folders:
+1.  Click **"1. Load FASTQ Files"**.
+2.  In the window that opens, you will see a folder named **`YOUR_DATA`**.
+3.  **Double-click `YOUR_DATA`**.
+    * This automatically opens your Windows User folder (`C:\Users\YourName\`).
+    * From there, you can navigate to your **Desktop**, **Documents**, or **Downloads** to select your FASTQ files.
 
-| Folder Name | What is inside? |
-| :--- | :--- |
-| **`/host_home`** | This links directly to your Windows User folder (**`C:\Users\YourName\`**). Navigate here to find your Documents, Desktop, or Downloads. |
-| **`/workspace`** | This links to the **Metadoon folder** where you ran the script. If you put your data inside the Metadoon folder, look here. |
-
-> 💡 **Tip:** If you can't find your data, simply move your FASTQ files into the `Metadoon` folder on Windows before running the tool. Then, look inside `/workspace` in the tool.
-> 
+> 💡 **Tip:** If you placed your FASTQ files inside the `Metadoon` folder itself, they will appear right away in the initial list, next to the `Run` folder.
 ---
 
 
