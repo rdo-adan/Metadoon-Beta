@@ -55,9 +55,14 @@ This method runs Metadoon in an isolated container. It works on **Linux**, **Win
 > **ℹ️ Under the Hood:** These scripts automatically build the image (if missing) and execute the following command to map your files and display the GUI:
 > ```bash
 > xhost +local:docker
-> ```
-> ```bash
-> docker run --rm -it \ --user $(id -u):$(id -g) \ -e DISPLAY=$DISPLAY \ v /tmp/.X11-unix:/tmp/.X11-unix \ -v "$(pwd)":/workspace:rw \ -v "$HOME":/host_home:ro \ metadoon
+>
+> docker run --rm -it \
+>   --user $(id -u):$(id -g) \
+>   -e DISPLAY=$DISPLAY \
+>   -v /tmp/.X11-unix:/tmp/.X11-unix \
+>   -v "$(pwd)":/workspace:rw \
+>   -v "$HOME":/host_home:ro \
+>   metadoon
 > ```
 
 ---
@@ -133,8 +138,7 @@ Metadoon/
 │   ├── MacOS_Run.command
 │   └── Linux_Run.sh
 │
-└── Example_Data.txt            # Links to Download a Small dataset for testing
-
+└── Example_Data.txt         # Links to Download a Small dataset for testing
 ```
 
 ### *Generated Directories (After Run)*
@@ -185,9 +189,30 @@ Metadoon/
 
 ---
 
+---
+### *📂 Windows Users: How to Find Your Files (Docker)*
+
+When running via Docker on Windows, the "Load Files" window shows the **Linux Container** file system, not your standard Windows Explorer. Don't panic! We have created shortcuts to your Windows files.
+
+**Where are my files?**
+
+1.  Click **"Load FASTQ Files"**.
+2.  In the file selection window, navigate to the **Root Directory** (often represented by a `/` or "File System").
+3.  Look for these two specific folders:
+
+| Folder Name | What is inside? |
+| :--- | :--- |
+| **`/host_home`** | This links directly to your Windows User folder (**`C:\Users\YourName\`**). Navigate here to find your Documents, Desktop, or Downloads. |
+| **`/workspace`** | This links to the **Metadoon folder** where you ran the script. If you put your data inside the Metadoon folder, look here. |
+
+> 💡 **Tip:** If you can't find your data, simply move your FASTQ files into the `Metadoon` folder on Windows before running the tool. Then, look inside `/workspace` in the tool.
+> 
+---
+
+
 ## *🗒️ How to Generate the Final Report*
 
-1.  **Run Pipeline:** Ensure you have loaded FASTQ files and clicked "RUN PIPELINE". Wait for the "Pipeline Finished" message.
+1.  **Run Pipeline:** Ensure you have loaded FASTQ files, Configured your parameters and clicked "RUN PIPELINE". Wait for the "Pipeline Finished" message.
 2.  **Generate:** Go to the **"Tools"** menu > Click **"Generate Final Report"**.
 3.  **View:** The `Metadoon_Report.html` will be created in the root folder and opened automatically.
 
@@ -196,7 +221,7 @@ Metadoon/
 1.  **Save:** Go to **"Tools"** > Click **"Save and Clean Results"**.
 2.  **Select Folder:** Choose a destination directory.
 3.  **Automatic Organization:** Metadoon creates a timestamped folder (e.g., `Metadoon_Results_2025-10-20_14-30`) containing all critical outputs.
-4.  **Cleanup:** You can choose to automatically delete the working directories (`Merged`, `Filtered`, etc.) to free up space.
+4.  **Cleanup:** You can choose to automatically delete the working directories (`Merged`, `Filtered`, etc.) to free up space after saving.
 
 ---
 
