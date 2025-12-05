@@ -455,7 +455,7 @@ def execute_pipeline(loading_window):
         time.sleep(1.0)
 
         base_dir = os.getcwd()
-        dirs = ['Merged', 'Filtered', 'Dereplicated', 'OTUs', 'Taxonomy', 'DB', 'FullFiles', 'Output']
+        dirs = ['Merged', 'Filtered', 'Dereplicated', 'OTUs', 'Taxonomy', 'DB', 'FullFiles', 'Output', 'TempInput']
         for d in dirs:
             os.makedirs(os.path.join(base_dir, d), exist_ok=True)
 
@@ -464,10 +464,11 @@ def execute_pipeline(loading_window):
             safe_log("Error: Could not load parameters.\n")
             return
 
+        # ------------------ DOWNLOAD DBS ------------------
         loading_window.update_text("Checking Databases...")
         time.sleep(0.5)
         
-        # Check databases
+        # Chimera
         if params["use_default_chimera_db"]:
             chimera_db = os.path.join(base_dir, 'DB', 'rdp_gold.fa')
             if not os.path.exists(chimera_db):
@@ -476,6 +477,7 @@ def execute_pipeline(loading_window):
         else:
             chimera_db = params["chimera_db"]
 
+        # SINTAX 16S
         if params["16s_db_option"] == "rdp":
             sintax_db = os.path.join(base_dir, 'DB', 'rdp_16s_v16.fa.gz')
             if not os.path.exists(sintax_db):
@@ -489,34 +491,55 @@ def execute_pipeline(loading_window):
         else:
             sintax_db = params["custom_16s_db"]
 
-        # Merge
+        # ------------------ MERGE PAIRS ------------------
         loading_window.update_text("Merging Paired Reads...")
         merged_files = []
+        
         for file in container.files:
             if "_R1_" in file:
+                temp_input_dir = os.path.join(base_dir, 'TempInput')
+                
                 file_name = os.path.splitext(os.path.basename(file))[0].replace("_R1_", "_")
-                reverse_file = file.replace('_R1_', '_R2_')
+                reverse_file_orig = file.replace('_R1_', '_R2_')
+                local_r1 = os.path.join(temp_input_dir, os.path.basename(file))
+                local_r2 = os.path.join(temp_input_dir, os.path.basename(reverse_file_orig))
+                
+                shutil.copy2(file, local_r1)
+                if os.path.exists(reverse_file_orig):
+                    shutil.copy2(reverse_file_orig, local_r2)
+                else:
+                    safe_log(f"Error: Reverse file not found for {file_name}\n")
+                    continue
+
                 merged_output = os.path.join(base_dir, 'Merged', f"{file_name}_merged.fastq")
                 
                 cmd = [
-                    "vsearch", "--fastq_mergepairs", file, "--reverse", reverse_file,
+                    "vsearch", "--fastq_mergepairs", local_r1, "--reverse", local_r2,
                     "--fastq_maxdiffs", str(params['fastq_maxdiffs']),
                     "--fastqout", merged_output, "--relabel", f"{file_name}_seq_"
                 ]
+                
                 safe_log(f"Merging {file_name}...\n")
-                subprocess.run(cmd, check=True, stderr=subprocess.DEVNULL)
+                proc = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if proc.returncode != 0:
+                    safe_log(f"VSEARCH Error on {file_name}:\n{proc.stderr}\n")
+                    raise Exception("VSEARCH Merge failed. See log.")
+                
                 merged_files.append(merged_output)
 
         if not merged_files:
-            safe_log("Error: No merged files created.\n")
+            safe_log("Error: No merged files created. Check input filenames (must contain _R1_).\n")
             return
 
+        # Concatenate
         all_merged = os.path.join(base_dir, 'FullFiles', 'all_samples.fastq')
         with open(all_merged, 'wb') as outfile:
             for fname in merged_files:
-                with open(fname, 'rb') as infile: shutil.copyfileobj(infile, outfile)
+                with open(fname, 'rb') as infile:
+                    shutil.copyfileobj(infile, outfile)
 
-        # Filter
+        # ------------------ FILTERING ------------------
         loading_window.update_text("Filtering Reads...")
         safe_log("Filtering reads...\n")
         time.sleep(0.5)
@@ -526,16 +549,18 @@ def execute_pipeline(loading_window):
             "--fastq_maxee", str(params['fastq_maxee']),
             "--fastaout", all_filtered, "--fasta_width", "0"
         ]
-        subprocess.run(cmd_filter, check=True, stderr=subprocess.DEVNULL)
+        proc = subprocess.run(cmd_filter, capture_output=True, text=True)
+        if proc.returncode != 0: raise Exception(f"Filtering failed: {proc.stderr}")
 
-        # Derep
+        # ------------------ DEREPLICATION ------------------
         loading_window.update_text("Dereplicating Sequences...")
         safe_log("Dereplicating...\n")
         time.sleep(0.5)
         all_derep = os.path.join(base_dir, 'Dereplicated', 'all_derep.fasta')
-        subprocess.run(["vsearch", "--derep_fulllength", all_filtered, "--output", all_derep, "--sizeout"], check=True, stderr=subprocess.DEVNULL)
+        proc = subprocess.run(["vsearch", "--derep_fulllength", all_filtered, "--output", all_derep, "--sizeout"], capture_output=True, text=True)
+        if proc.returncode != 0: raise Exception(f"Dereplication failed: {proc.stderr}")
 
-        # --- CLUSTERING OR DENOISING ---
+        # ------------------ CLUSTERING / DENOISING ------------------
         centroids = os.path.join(base_dir, 'OTUs', 'centroids.fasta')
         method = params.get("clustering_method", "otu")
 
@@ -544,57 +569,62 @@ def execute_pipeline(loading_window):
             safe_log("Denoising sequences (Unoising) to generate ASVs...\n")
             time.sleep(0.5)
             
-            subprocess.run([
+            cmd = [
                 "vsearch", "--cluster_unoise", all_derep,
                 "--centroids", centroids,
                 "--minsize", str(params['minuniquesize']),
                 "--sizein", "--sizeout",
                 "--relabel", "ASV_"
-            ], check=True, stderr=subprocess.DEVNULL)
-            
+            ]
         else:
             loading_window.update_text("Clustering OTUs (97%)...")
             safe_log("Clustering OTUs (97% Identity)...\n")
             time.sleep(0.5)
             
-            subprocess.run([
+            cmd = [
                 "vsearch", "--cluster_size", all_derep, 
                 "--id", str(params['id']), 
                 "--centroids", centroids, 
                 "--sizein", "--sizeout", 
                 "--relabel", "OTU_"
-            ], check=True, stderr=subprocess.DEVNULL)
+            ]
+            
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0: raise Exception(f"Clustering/Denoising failed: {proc.stderr}")
 
-        # Chimera
+        # ------------------ CHIMERA REMOVAL ------------------
         loading_window.update_text("Removing Chimeras...")
         safe_log("Removing Chimeras (De Novo)...\n")
         time.sleep(0.5)
         denovo_nonchim = os.path.join(base_dir, 'OTUs', 'denovo_nonchim.fasta')
-        subprocess.run(["vsearch", "--uchime_denovo", centroids, "--nonchimeras", denovo_nonchim], check=True, stderr=subprocess.DEVNULL)
+        subprocess.run(["vsearch", "--uchime_denovo", centroids, "--nonchimeras", denovo_nonchim], check=True)
 
         safe_log("Removing Chimeras (Reference)...\n")
         final_otus = os.path.join(base_dir, 'OTUs', 'otus.fasta')
-        subprocess.run(["vsearch", "--uchime_ref", denovo_nonchim, "--db", chimera_db, "--nonchimeras", final_otus], check=True, stderr=subprocess.DEVNULL)
+        proc = subprocess.run(["vsearch", "--uchime_ref", denovo_nonchim, "--db", chimera_db, "--nonchimeras", final_otus], capture_output=True, text=True)
+        if proc.returncode != 0: raise Exception(f"Chimera ref failed: {proc.stderr}")
 
-        # OTU Table
+        # ------------------ OTU TABLE ------------------
         loading_window.update_text("Generating Abundance Table...")
         safe_log("Generating Abundance Table...\n")
         time.sleep(0.5)
         otutab = os.path.join(base_dir, 'OTUs', 'otutab.txt')
-        subprocess.run(["vsearch", "--usearch_global", all_filtered, "--db", final_otus, "--id", str(params['id']), "--otutabout", otutab], check=True, stderr=subprocess.DEVNULL)
+        proc = subprocess.run(["vsearch", "--usearch_global", all_filtered, "--db", final_otus, "--id", str(params['id']), "--otutabout", otutab], capture_output=True, text=True)
+        if proc.returncode != 0: raise Exception(f"OTU Table generation failed: {proc.stderr}")
 
-        # Taxonomy
+        # ------------------ TAXONOMY ------------------
         loading_window.update_text("Assigning Taxonomy...")
         safe_log("Assigning Taxonomy (SINTAX)...\n")
         time.sleep(0.5)
         tax_raw = os.path.join(base_dir, 'Taxonomy', 'taxonomy_raw.txt')
         tax_final = os.path.join(base_dir, 'Taxonomy', 'taxonomy.txt')
         
-        subprocess.run([
+        proc = subprocess.run([
             "vsearch", "--sintax", final_otus, "--db", sintax_db,
             "--tabbedout", tax_raw, "--sintax_cutoff", str(params['sintax_cutoff']),
             "--strand", params['strand']
-        ], check=True, stderr=subprocess.DEVNULL)
+        ], capture_output=True, text=True)
+        if proc.returncode != 0: raise Exception(f"SINTAX failed: {proc.stderr}")
 
         # --- CLEAN TAXONOMY FILE ---
         safe_log("Formatting Taxonomy Table...\n")
@@ -618,8 +648,12 @@ def execute_pipeline(loading_window):
                     outfile.write(f"{otu_id}\tNA\tNA\tNA\tNA\tNA\tNA\tNA\n")
 
         safe_log(">>> VSEARCH Pipeline Finished.\n")
+        
+        # Clean Temp Files
+        if os.path.exists(os.path.join(base_dir, 'TempInput')):
+            shutil.rmtree(os.path.join(base_dir, 'TempInput'))
 
-        # R Analysis
+        # ------------------ RUN R ANALYSIS ------------------
         if shutil.which("Rscript"):
             loading_window.update_text("Running R Analysis...")
             safe_log(">>> Starting R Analysis...\n")
@@ -642,6 +676,7 @@ def execute_pipeline(loading_window):
         print(traceback.format_exc())
     finally:
         root.after(0, loading_window.close)
+
 
 def Generate_report():
     loading = LoadingWindow(root, "Generating Report")
