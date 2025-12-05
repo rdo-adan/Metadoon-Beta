@@ -289,7 +289,8 @@ rarefy_phyloseq <- function(ps, depth = rarefaction_depth) {
 ps <- rarefy_phyloseq(ps)
 ```
 
-#Interpretation: Samples that plateau have been sequenced to near saturation. - Curves that rise sharply with no sign of plateau suggest under-sampling.
+#Interpretation: 
+Samples that plateau have been sequenced to near saturation. - Curves that rise sharply with no sign of plateau suggest under-sampling.
 
 ### Relative abundance:
 
@@ -628,7 +629,8 @@ plot_beta(ps, "NMDS", "NMDS")
 plot_beta(ps, "PCoA", "PCoA")
 ```
 
-#Interpretation: Each point represents a microbial community from a sample. - Samples closer together are more similar in composition. - Ellipses indicate clustering patterns by metadata group. - NMDS (Non-metric Multidimensional Scaling): focuses on rank-order distances; does not preserve exact distances but reveals relative similarities. Good for complex, non-linear relationships. - PCoA (Principal Coordinates Analysis): preserves actual distances as well as possible; useful when understanding variance structure of dissimilarity matrix.
+#Interpretation: 
+Each point represents a microbial community from a sample. - Samples closer together are more similar in composition. - Ellipses indicate clustering patterns by metadata group. - NMDS (Non-metric Multidimensional Scaling): focuses on rank-order distances; does not preserve exact distances but reveals relative similarities. Good for complex, non-linear relationships. - PCoA (Principal Coordinates Analysis): preserves actual distances as well as possible; useful when understanding variance structure of dissimilarity matrix.
 
 ### Permanova:
 
@@ -659,7 +661,8 @@ run_permanova <- function(ps) {
 run_permanova(ps)
 ```
 
-#Interpretation: The pseudo-F statistic indicates the ratio of between-group to within-group variance. - A low p-value (\< 0.05) suggests significant differences in community composition between groups. - PERMANOVA assumes similar dispersion among groups; pair this analysis with a check for homogeneity of dispersion (e.g., using betadisper).
+#Interpretation: 
+The pseudo-F statistic indicates the ratio of between-group to within-group variance. - A low p-value (\< 0.05) suggests significant differences in community composition between groups. - PERMANOVA assumes similar dispersion among groups; pair this analysis with a check for homogeneity of dispersion (e.g., using betadisper).
 
 ### Global RDA (Redundancy Analysis):
 
