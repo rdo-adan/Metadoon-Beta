@@ -88,11 +88,6 @@ def _insert_log(text):
     terminal_output.see(tk.END)
     terminal_output.config(state='disabled')
 
-def _insert_log(text):
-    terminal_output.config(state='normal')
-    terminal_output.insert(tk.END, text)
-    terminal_output.see(tk.END)
-    terminal_output.config(state='disabled')
 
 # --- CONFIG MANAGER ---
 class ConfigContainer:
