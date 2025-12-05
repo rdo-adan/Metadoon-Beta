@@ -1,5 +1,5 @@
 ################################### Loading Packages ########################################
-
+install.packages("rprojroot")
 required_packages <- c("phyloseq", "vegan", "ggplot2", "ggpubr", "cowplot", "dplyr", 
                        "DESeq2", "scater", "rprojroot", "pairwiseAdonis", "pheatmap", 
                        "viridis", "ape", "microbiome", "wesanderson", "RColorBrewer", 
