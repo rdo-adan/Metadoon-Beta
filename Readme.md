@@ -55,7 +55,8 @@ This method runs Metadoon in an isolated container. It works on **Linux**, **Win
 > **ℹ️ Under the Hood:** These scripts automatically build the image (if missing) and execute the following command to map your files and display the GUI:
 > ```bash
 > xhost +local:docker
->
+> ```
+> ```bash
 > docker run --rm -it \ --user $(id -u):$(id -g) \ -e DISPLAY=$DISPLAY \ v /tmp/.X11-unix:/tmp/.X11-unix \ -v "$(pwd)":/workspace:rw \ -v "$HOME":/host_home:ro \ metadoon
 > ```
 
