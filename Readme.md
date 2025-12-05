@@ -56,13 +56,7 @@ This method runs Metadoon in an isolated container. It works on **Linux**, **Win
 > ```bash
 > xhost +local:docker
 >
-> docker run --rm -it \
->   --user $(id -u):$(id -g) \
->   -e DISPLAY=$DISPLAY \
->   -v /tmp/.X11-unix:/tmp/.X11-unix \
->   -v "$(pwd)":/workspace:rw \
->   -v "$HOME":/host_home:ro \
->   metadoon
+> docker run --rm -it \ --user $(id -u):$(id -g) \ -e DISPLAY=$DISPLAY \ v /tmp/.X11-unix:/tmp/.X11-unix \ -v "$(pwd)":/workspace:rw \ -v "$HOME":/host_home:ro \ metadoon
 > ```
 
 ---
