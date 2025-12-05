@@ -407,8 +407,11 @@ plot_alpha_diversity <- function(ps) {
   
   if (!dir.exists("Output")) dir.create("Output")
   
-  # Calculate indices
-  alpha_div <- estimate_richness(ps, measures = c("Shannon", "Simpson", "Chao1", "ACE", "Observed"))
+  # Calcula índices
+  # Suppress warnings para evitar spam no relatório (ex: singletons)
+  suppressWarnings({
+    alpha_div <- estimate_richness(ps, measures = c("Shannon", "Simpson", "Chao1", "ACE", "Observed"))
+  })
   alpha_div$SampleID <- rownames(alpha_div)
   
   meta_data <- as(sample_data(ps), "data.frame")
@@ -419,41 +422,30 @@ plot_alpha_diversity <- function(ps) {
   
   target_indices <- c("Observed", "Chao1", "ACE", "Shannon", "Simpson")
   available_indices <- intersect(target_indices, colnames(alpha_merged))
-  
-  # Determine Statistical Method for Categorical Data
-  clean_test <- tolower(stat_test)
-  if (clean_test %in% c("t-test", "ttest", "t_test")) clean_test <- "t.test"
-  if (clean_test %in% c("wilcox", "wilcoxon")) clean_test <- "wilcox.test"
-  if (clean_test %in% c("kruskal", "kruskal.test")) clean_test <- "kruskal.test"
-  if (clean_test %in% c("anova")) clean_test <- "anova"
-  
-  # Fallback for title label
-  method_for_title <- ifelse(clean_test %in% c("t.test", "anova"), "anova", "kruskal.test")
+
+  # Define método estatístico fixo (não-paramétrico)
+  stat_method <- "kruskal.test"
   
   for (meta_var in meta_columns) {
     
-    # Extract the column data to check type
+    # Check Type
     raw_vals <- meta_data[[meta_var]]
-    # Remove NAs just to check properties
     clean_vals <- na.omit(raw_vals)
     
-    # Skip if empty or only 1 value
     if (length(unique(clean_vals)) < 2) next
     
-    # CHECK: Is it Numeric or Categorical?
     is_numeric_var <- is.numeric(clean_vals)
     
-    cat(paste0("Generating Alpha Diversity for variable: ", meta_var, " (Type: ", ifelse(is_numeric_var, "Numeric", "Categorical"), ")\n"))
+    # Imprime Subtítulo no Relatório para separar as variáveis
+    cat(paste0("\n#### Variable: ", meta_var, "\n"))
     
-    # Dynamic Palette Setup
+    # Configura Paleta se for categórico
     if (!is_numeric_var) {
       pal <- get_dynamic_palette(palette_base, length(unique(clean_vals)))
     }
     
     for (index in available_indices) {
       
-      # Create plotting dataframe
-      # Note: We use the raw column for 'Group' to preserve numeric type if applicable
       plot_df <- data.frame(
         Sample = alpha_merged$SampleID, 
         Diversity = alpha_merged[[index]], 
@@ -461,59 +453,44 @@ plot_alpha_diversity <- function(ps) {
       )
       plot_df <- na.omit(plot_df)
       
-      # --- PLOTTING LOGIC ---
-      
       if (is_numeric_var) {
-        # === NUMERIC VARIABLES: SCATTER PLOT + GRADIENT ===
-        
+        # --- SCATTER PLOT (NUMERIC) ---
         p <- ggplot(plot_df, aes(x = Variable, y = Diversity, color = Variable)) +
-          # Scatter points with gradient color
           geom_point(size = 3, alpha = 0.8) +
-          
-          # Trend line (Linear Model) - shows correlation direction
           geom_smooth(method = "lm", color = "black", linetype = "dashed", se = TRUE, alpha = 0.2) +
-          
-          # Automatic Correlation Stats (R and p-value) on the plot
           ggpubr::stat_cor(method = "pearson", label.x.npc = "left", label.y.npc = "top") +
-          
-          # Gradient Scale using user's palette base
           scale_color_gradientn(colours = palette_base) +
+          labs(title = paste(index, "vs", meta_var), 
+               x = meta_var, y = index, color = meta_var) +
+          theme_minimal(base_size = 12)
           
-          labs(
-            title = paste("Alpha Diversity (Correlation) -", index), 
-            subtitle = paste("Variable:", meta_var),
-            x = meta_var,
-            y = index,
-            color = meta_var
-          ) +
-          theme_minimal(base_size = 14)
-        
       } else {
-        # === CATEGORICAL VARIABLES: BOXPLOT (Old Logic) ===
-        
-        # Ensure it is a factor for boxplot
+        # --- BOXPLOT (CATEGORICAL) ---
         plot_df$Variable <- as.factor(plot_df$Variable)
         
-        # Calc Stats
         p_label <- ""
         tryCatch({
-          stat_res <- compare_means(Diversity ~ Variable, data = plot_df, method = method_for_title)
+          stat_res <- compare_means(Diversity ~ Variable, data = plot_df, method = stat_method)
           p_label <- paste0("(p = ", stat_res$p.format, ")")
         }, error = function(e) { p_label <<- "" })
         
         p <- ggboxplot(plot_df, x = "Variable", y = "Diversity", color = "Variable", add = "jitter") +
-          labs(
-            title = paste("Alpha Diversity (Group Comparison) -", index, p_label), 
-            x = meta_var,
-            y = index,
-            color = meta_var
-          ) +
-          theme_minimal(base_size = 14) +
+          labs(title = paste(index, "-", p_label), 
+               x = "", y = index, color = meta_var) +
+          theme_minimal(base_size = 12) +
           scale_color_manual(values = pal) +
           theme(axis.text.x = element_text(angle = 45, hjust = 1))
       }
       
-      save_plot(p, paste0("alpha_diversity_", index, "_", meta_var, ".png"), width = 8, height = 6)
+      # Salva o PNG (Silencioso)
+      ggsave(filename = file.path("Output", paste0("alpha_diversity_", index, "_", meta_var, ".png")), 
+             plot = p, width = 6, height = 5, dpi = 300, bg = "white")
+      
+      # Imprime no Relatório HTML (CRUCIAL)
+      print(p)
+      
+      # Adiciona espaço vertical no HTML
+      cat("\n\n")
     }
   }
 }
