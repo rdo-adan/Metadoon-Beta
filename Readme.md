@@ -138,7 +138,7 @@ Metadoon/
 │   ├── MacOS_Run.command
 │   └── Linux_Run.sh
 │
-└── Example_Data.txt            # Small dataset for testing
+└── Example_Data.txt            # Links to Download a Small dataset for testing
 
 ```
 
