@@ -138,10 +138,8 @@ Metadoon/
 │   ├── MacOS_Run.command
 │   └── Linux_Run.sh
 │
-└── Example_Data/            # Small dataset for testing
-    ├── Sample1_R1.fastq
-    ├── Sample1_R2.fastq
-    └── metadata.tsv
+└── Example_Data.txt            # Small dataset for testing
+
 ```
 
 ### *Generated Directories (After Run)*
