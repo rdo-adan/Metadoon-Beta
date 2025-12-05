@@ -58,10 +58,35 @@ class LoadingWindow:
     def close(self):
         self.top.destroy()
 
-# --- THREAD-SAFE LOGGING ---
+# --- LOGGING SYSTEM ---
+LOG_FILE = "metadoon_session.log"
+
 def safe_log(text):
+    """
+    Writes text to the GUI terminal and appends it to the log file.
+    """
+    # 1. Update GUI (Thread-safe)
     if 'terminal_output' in globals():
         terminal_output.after(0, lambda: _insert_log(text))
+    
+    # 2. Write to File
+    try:
+        # Open in append mode ('a'), create if doesn't exist
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            # Add timestamp for file log only
+            timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S] ")
+            # Clean text (remove extra newlines for log file if needed)
+            clean_text = text.strip()
+            if clean_text:
+                f.write(f"{timestamp}{clean_text}\n")
+    except Exception as e:
+        print(f"Failed to write to log file: {e}")
+
+def _insert_log(text):
+    terminal_output.config(state='normal')
+    terminal_output.insert(tk.END, text)
+    terminal_output.see(tk.END)
+    terminal_output.config(state='disabled')
 
 def _insert_log(text):
     terminal_output.config(state='normal')
@@ -121,6 +146,49 @@ class ConfigContainer:
 
 config_container = ConfigContainer()
 
+
+def organize_output():
+    """
+    Organizes the messy Output folder into structured subfolders.
+    """
+    safe_log("\n>>> Organizing Output Files...\n")
+    
+    base_output = os.path.join(os.getcwd(), 'Output')
+    if not os.path.exists(base_output):
+        return
+
+    # Define structure
+    structure = {
+        'Plots/Alpha_Diversity': ['alpha_diversity_', 'rarefaction_curve'],
+        'Plots/Beta_Diversity': ['beta_diversity_'],
+        'Plots/Taxonomy': ['abundance_', 'core_microbiome_'],
+        'Plots/Differential_Abundance': ['deseq2_diff_', 'ancombc_diff_'],
+        'Tables/Differential_Abundance': ['DESeq2_', 'ANCOMBC_'],
+        'Tables/Statistics': ['permanova_result_']
+    }
+
+    # Create folders
+    for folder in structure.keys():
+        os.makedirs(os.path.join(base_output, folder), exist_ok=True)
+
+    # Move files
+    files = os.listdir(base_output)
+    for f in files:
+        src = os.path.join(base_output, f)
+        if not os.path.isfile(src): continue
+        
+        moved = False
+        for folder, patterns in structure.items():
+            if any(p in f for p in patterns):
+                dst = os.path.join(base_output, folder, f)
+                shutil.move(src, dst)
+                moved = True
+                break
+        
+        # Optional: Move remaining files to a "Misc" folder if needed
+        # if not moved: ...
+
+    safe_log(">>> Output Organized Successfully.\n")
 # --- CONFIG WINDOW ---
 def configure_execution():
     config_window = tk.Toplevel()
@@ -411,7 +479,7 @@ def clean_workspace():
     base_dir = os.getcwd()
     
     folders_to_remove = ['Merged', 'Filtered', 'Dereplicated', 'OTUs', 'Taxonomy', 'DB', 'FullFiles', 'Output', 'Metadata File', 'Tree File']
-    files_to_remove = ['pipeline_params.json', 'Metadoon_Report.html', 'Rplots.pdf', '.RData', '.Rhistory']
+    files_to_remove = ['pipeline_params.json', 'Metadoon_Report.html', 'Rplots.pdf', '.RData', '.Rhistory','metadoon_session.log']
 
     for folder in folders_to_remove:
         dir_path = os.path.join(base_dir, folder)
@@ -448,9 +516,58 @@ def run_pipeline():
     t = threading.Thread(target=execute_pipeline, args=(loading,))
     t.start()
 
+def organize_output():
+    """
+    Organizes the messy Output folder into structured subfolders.
+    """
+    safe_log("\n>>> Organizing Output Files...\n")
+    
+    base_output = os.path.join(os.getcwd(), 'Output')
+    if not os.path.exists(base_output):
+        return
+
+    # Define structure
+    structure = {
+        'Plots/Alpha_Diversity': ['alpha_diversity_', 'rarefaction_curve'],
+        'Plots/Beta_Diversity': ['beta_diversity_'],
+        'Plots/Taxonomy': ['abundance_', 'core_microbiome_'],
+        'Plots/Differential_Abundance': ['deseq2_diff_', 'ancombc_diff_'],
+        'Tables/Differential_Abundance': ['DESeq2_', 'ANCOMBC_'],
+        'Tables/Statistics': ['permanova_result_']
+    }
+
+    # Create folders
+    for folder in structure.keys():
+        os.makedirs(os.path.join(base_output, folder), exist_ok=True)
+
+    # Move files
+    files = os.listdir(base_output)
+    for f in files:
+        src = os.path.join(base_output, f)
+        if not os.path.isfile(src): continue
+        
+        moved = False
+        for folder, patterns in structure.items():
+            if any(p in f for p in patterns):
+                dst = os.path.join(base_output, folder, f)
+                shutil.move(src, dst)
+                moved = True
+                break
+        
+        # Optional: Move remaining files to a "Misc" folder if needed
+        # if not moved: ...
+
+    safe_log(">>> Output Organized Successfully.\n")
+
 def execute_pipeline(loading_window):
     try:
+        # Clear GUI Terminal
         terminal_output.after(0, lambda: terminal_output.delete(1.0, tk.END))
+        
+        # --- NEW: Clear Log File for new run ---
+        if os.path.exists(LOG_FILE):
+            os.remove(LOG_FILE)
+            
         safe_log(">>> Initializing Metadoon Pipeline...\n")
         time.sleep(1.0)
 
@@ -675,6 +792,7 @@ def execute_pipeline(loading_window):
         safe_log(f"\nCRITICAL ERROR: {str(e)}\n")
         print(traceback.format_exc())
     finally:
+        organize_output()
         root.after(0, loading_window.close)
 
 
@@ -706,13 +824,17 @@ def execute_report(loading_window):
         root.after(0, loading_window.close)
 
 def save_analysis_results():
+
     parent_dir = filedialog.askdirectory(title="Select Parent Folder to Save Results")
-    if not parent_dir: return
+    if not parent_dir:
+        return
 
     try:
+
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         folder_name = f"Metadoon_Results_{timestamp}"
         dest_path = os.path.join(parent_dir, folder_name)
+        
         os.makedirs(dest_path, exist_ok=True)
 
         terminal_output.config(state='normal')
@@ -720,7 +842,20 @@ def save_analysis_results():
         terminal_output.config(state='disabled')
         
         curr = os.getcwd()
-        targets = ['OTUs', 'Taxonomy', 'Output', 'Merged', 'Filtered', 'pipeline_params.json', 'Metadoon_Report.html']
+        
+
+        targets = [
+            'Output',             # Gráficos e Tabelas Estatísticas
+            'Metadoon_Report.html', # Relatório Final
+            'pipeline_params.json', # Parâmetros usados
+            'OTUs',               # Tabelas de OTU e Sequências Finais
+            'Taxonomy',           # Classificação Taxonômica
+            'Metadata File',      # IMPORTANTE: Salva o metadado usado
+            'Tree File',          # IMPORTANTE: Salva a árvore usada
+            'Merged',             # Opcional: Reads unidos
+            'Filtered',           # Opcional: Reads filtrados
+            'metadoon_session.log'
+        ]
         
         saved_any = False
         
@@ -728,26 +863,37 @@ def save_analysis_results():
             src = os.path.join(curr, item)
             if os.path.exists(src):
                 final_dst = os.path.join(dest_path, item)
+                
+                
                 if os.path.isdir(src):
                     if os.path.exists(final_dst): shutil.rmtree(final_dst)
                     shutil.copytree(src, final_dst)
+               
                 else:
                     shutil.copy2(src, final_dst)
+                
                 saved_any = True
         
         if saved_any:
-            if messagebox.askyesno("Cleanup", f"Results saved in:\n{folder_name}\n\nDo you want to clean the workspace?"):
+            
+            if messagebox.askyesno("Cleanup", f"Results saved in:\n{folder_name}\n\nDo you want to clean the workspace (delete temporary files)?"):
                 clean_workspace()
             else:
                 messagebox.showinfo("Saved", f"Results saved successfully in:\n{dest_path}")
+                
+                
                 try:
-                    if platform.system() == "Windows": os.startfile(dest_path)
-                    elif platform.system() == "Darwin": subprocess.Popen(["open", dest_path])
-                    else: subprocess.Popen(["xdg-open", dest_path])
-                except: pass
+                    if platform.system() == "Windows":
+                        os.startfile(dest_path)
+                    elif platform.system() == "Darwin": # macOS
+                        subprocess.Popen(["open", dest_path])
+                    else: # Linux
+                        subprocess.Popen(["xdg-open", dest_path])
+                except:
+                    pass
         else:
-            messagebox.showwarning("Warning", "No result files were found to save.")
-            try: os.rmdir(dest_path)
+            messagebox.showwarning("Warning", "No result files were found to save. Did you run the pipeline?")
+            try: os.rmdir(dest_path) 
             except: pass
 
     except Exception as e:
