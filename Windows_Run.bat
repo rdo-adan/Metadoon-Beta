@@ -21,11 +21,10 @@ if %errorlevel% neq 0 (
 cd /d "%~dp0"
 
 :: 3. Convert Windows paths to WSL format
-:: Crucial for mounting volumes correctly in Docker via WSL
 for /f "usebackq tokens=*" %%a in (`wsl wslpath -a "%cd%"`) do set WSL_CURRENT_DIR=%%a
 for /f "usebackq tokens=*" %%a in (`wsl wslpath -a "%UserProfile%"`) do set WSL_USER_PROFILE=%%a
 
-:: 4. Update Image (Optional - comment if offline)
+:: 4. Update Image (Optional)
 echo.
 echo [INFO] Checking for updates...
 docker pull %IMAGE_NAME%
@@ -33,13 +32,11 @@ docker pull %IMAGE_NAME%
 :: 5. Execute Container
 echo.
 echo [INFO] Launching Metadoon...
-echo [INFO] Workspace mapped to: %WSL_CURRENT_DIR%
+echo [TIP] Inside the app:
+echo        - Go to "/app/YOUR_DATA" to see your User folders (Downloads, Documents).
+echo        - Go to "/app/C_Drive" to see your entire C: disk.
 
 :: --- DOCKER RUN COMMAND ---
-:: -v /tmp/.X11-unix...: Graphic drivers mapping for WSLg
-:: -v "%WSL_CURRENT_DIR%":/workspace: Maps current folder to container workspace
-:: -w /workspace: Sets working directory
-:: python /app/metadoon.py: Executes the specific entry command
 
 wsl -e docker run --rm -it ^
   --net=host ^
@@ -50,6 +47,8 @@ wsl -e docker run --rm -it ^
   -e XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir ^
   -v "%WSL_CURRENT_DIR%":/workspace:rw ^
   -v "%WSL_USER_PROFILE%":/app/YOUR_DATA ^
+  -v /mnt/c:/app/C_Drive ^
+  -v /mnt/d:/app/D_Drive ^
   --workdir /workspace ^
   %IMAGE_NAME% ^
   python /app/metadoon.py

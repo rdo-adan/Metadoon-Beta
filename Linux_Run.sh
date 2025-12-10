@@ -31,11 +31,13 @@ docker pull $IMAGE_NAME
 # 5. Execute Container
 echo ""
 echo "[INFO] Launching Metadoon..."
+echo "[TIP] Workspace mapped to: $(pwd)"
 
 # --- DOCKER RUN COMMAND ---
-# --user $(id -u):$(id -g): Runs as current user to fix file permissions
-# -v "$(pwd)":/workspace:rw: Maps current directory
-# python /app/metadoon.py: Main execution command
+# --net=host: Best network integration for Linux
+# --user $(id -u):$(id -g): Runs as current user (CRITICAL for Linux file permissions)
+# -v "$(pwd)":/workspace:rw: Maps current folder as the working directory
+# python /app/metadoon.py: Explicit command to run the app
 
 docker run --rm -it \
     --net=host \

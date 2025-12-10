@@ -31,36 +31,71 @@ All major and minor dependencies are pre-installed:
 
 ## *🚀 Installation & Usage*
 
-You can run Metadoon using **Docker (Recommended)** or via **Native Installation (Conda)**.
+Metadoon operates entirely locally using **Docker**. This ensures that all dependencies (R, Python, VSEARCH) work perfectly on your machine without complex manual installation.
 
-### *Option 1: Docker Container (Recommended & Cross-Platform)*
-This method runs Metadoon in an isolated container. It works on **Linux**, **Windows (via WSL2)**, and **macOS**. No need to install R, Python, or VSEARCH manually.
+### 📋 1. Prerequisites
 
-#### **Prerequisites**
-1.  **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** installed and running.
-2.  **Windows Users:** Ensure **[WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install)** is installed and Docker is configured to use it.
-3.  **Graphics Support:**
-    * *Linux:* Usually works out of the box.
-    * *Windows:* WSL 2 usually handles graphics (WSLg). If not, use an XServer like **VcXsrv**.
-    * *macOS:* Install **[XQuartz](https://www.xquartz.org/)** and allow network connections.
+Before running Metadoon, you must have **Docker** installed and running:
 
-#### **How to Run**
-1.  Download this repository.
-2.  Open the `Run/` folder.
-3.  Double-click (or run in terminal) the script for your OS:
-    * 🪟 **Windows:** `Windows_Run.bat`
-    * 🐧 **Linux:** `Linux_Run.sh`
-    * 🍎 **macOS:** `MacOS_Run.command`
-
-> **ℹ️ Under the Hood:** These scripts automatically build the image (if missing) and execute the following command to map your files and display the GUI:
-> ```bash
-> xhost +local:docker
->```
-> ```bash
-> docker run --rm -it \ --user $(id -u):$(id -g) \ -e DISPLAY=$DISPLAY \ -v /tmp/.X11-unix:/tmp/.X11-unix \ -v "$(pwd)":/workspace:rw \ -v "$HOME":/host_home:ro \ metadoon
-> ```
+* **Windows Users:** Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/).
+    * *Note:* Ensure "Use WSL 2 based engine" is checked in Docker settings.
+* **macOS Users:**
+    1.  Install [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/).
+    2.  **Crucial:** Install [XQuartz](https://www.xquartz.org/) to allow the graphical interface to appear.
+        * *After installing XQuartz, go to Preferences > Security and check "Allow connections from network clients".*
+* **Linux Users:** Install [Docker Engine](https://docs.docker.com/engine/install/).
 
 ---
+
+### 🏃 2. How to Run (One-Click Launchers)
+
+You do **not** need to open a terminal or type complex Docker commands manually. We provide automatic launchers for every system.
+
+#### 🪟 Windows
+1.  Download and unzip this repository.
+2.  Navigate to the `Run/` folder.
+3.  Double-click **`Windows_Run.bat`**.
+4.  A terminal window will open to start the engine, and the Metadoon GUI will appear shortly.
+
+#### 🍎 macOS
+1.  Open **XQuartz** first.
+2.  Navigate to the `Run/` folder.
+3.  Right-click **`MacOS_Run.command`** and select *Open*.
+    * *Note: If macOS prevents execution due to security, go to System Settings > Privacy & Security and allow the script.*
+
+#### 🐧 Linux
+1.  Open a terminal in the `Run/` folder.
+2.  Make the script executable (only needed once):
+    ```bash
+    chmod +x Linux_Run.sh
+    ```
+3.  Run the script:
+    ```bash
+    ./Linux_Run.sh
+    ```
+
+---
+
+### 🧪 3. Testing with Example Data
+
+To ensure everything is working correctly, you can use our lightweight synthetic dataset.
+
+1.  [**📥 Download Example Data (.zip)**](https://mega.nz/file/7ywinBYB#uaISNfE7d-9veK9earSEaI2vjR50CSByBKiHwgcToSU)
+2.  Unzip the file.
+3.  Open Metadoon.
+4.  Click **"Load FASTQ Files"** and select the `.fastq` files from the extracted folder.
+5.  When prompted for Metadata, select `metadata.tsv`.
+6.  Click **"Run Pipeline"**.
+
+---
+
+### 📂 4. Where are my files? (Docker Mapping)
+
+When Metadoon launches via these scripts, it automatically maps your local folders into the container for easy access:
+
+* **/workspace**: This is the folder where you ran the script (the project root). **All results (Output folder) are saved here.**
+* **/app/YOUR_DATA**: This maps to your computer's **User Profile** (Documents, Downloads, Desktop) for easy file finding.
+* **/app/C_Drive** *(Windows Only)*: Direct access to your entire C: drive.
 
 ### *Option 2: Native Installation (Linux Only)*
 This is the "classic" method using Conda. It is recommended primarily for **Linux** users who prefer running tools natively without Docker.

@@ -37,11 +37,12 @@ docker pull $IMAGE_NAME
 # 6. Execute Container
 echo ""
 echo "[INFO] Launching Metadoon..."
+echo "[TIP] Workspace mapped to: $(pwd)"
 
 # --- DOCKER RUN COMMAND ---
-# -e DISPLAY=host.docker.internal:0: Connects to XQuartz
-# -v "$(pwd)":/workspace:rw: Maps current directory
-# python /app/metadoon.py: Main execution command
+# -e DISPLAY=host.docker.internal:0: Connects to XQuartz on Mac
+# -v "$(pwd)":/workspace:rw: Maps current folder
+# python /app/metadoon.py: Explicit command
 
 docker run --rm -it \
     -e DISPLAY=host.docker.internal:0 \
