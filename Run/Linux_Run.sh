@@ -6,13 +6,12 @@
 
 IMAGE_NAME="engbio/metadoon:v1.0"
 
-# 1. Navigate to the script's directory
-# Ensures the script runs from the project root regardless of where it's called
+# 1. Navigate to script directory
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$DIR"
 
 echo "=========================================="
-echo "      Metadoon (Docker for Linux)"
+echo "      Metadoon (Linux Docker)"
 echo "=========================================="
 
 # 2. Check Docker
@@ -21,9 +20,8 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# 3. Configure X11 Permissions (Required for GUI)
+# 3. Configure X11 Permissions
 echo "[INFO] Configuring X11 permissions..."
-# Allows the container to communicate with the local X11 server
 xhost +local:docker > /dev/null 2>&1
 
 # 4. Update Image
@@ -33,28 +31,22 @@ docker pull $IMAGE_NAME
 # 5. Execute Container
 echo ""
 echo "[INFO] Launching Metadoon..."
-echo "[INFO] Current directory mapped to: /workspace"
-echo "[INFO] Your Home folder mapped to: /app/YOUR_DATA"
 
 # --- DOCKER RUN COMMAND ---
-# --net=host: Shares network stack (often helps with X11 connectivity)
-# --user $(id -u):$(id -g): Runs container as CURRENT USER to avoid 'root' file permission issues on outputs
-# -e DISPLAY=$DISPLAY: Connects to the host display
-# -v /tmp/.X11-unix...: Maps X11 socket
-# -v "$(pwd)":/workspace: Maps current project folder for inputs/outputs
-# -v "$HOME":/app/YOUR_DATA: Maps Linux Home folder for easy file selection
-# bash -c ...: Enters /app and runs the tool
+# --user $(id -u):$(id -g): Runs as current user to fix file permissions
+# -v "$(pwd)":/workspace:rw: Maps current directory
+# python /app/metadoon.py: Main execution command
 
 docker run --rm -it \
     --net=host \
-    --user $(id -u):$(id -g) \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v "$(pwd)":/workspace \
+    -v "$(pwd)":/workspace:rw \
     -v "$HOME":/app/YOUR_DATA \
+    --user $(id -u):$(id -g) \
     --workdir /workspace \
     $IMAGE_NAME \
-    bash -c "cd /app && python metadoon.py"
+    python /app/metadoon.py
 
 if [ $? -ne 0 ]; then
     echo ""
