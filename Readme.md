@@ -161,13 +161,10 @@ Metadoon/
 ├── metadoon_env.yaml        # Conda environment definition
 ├── setup.sh                 # Native installation script (Linux)
 ├── LICENSE                  # License file
-├── Readme.md                # Project documentation
-│
-├── Run/                     # Launcher scripts for Docker (All OS)
-│   ├── Windows_Run.bat
-│   ├── MacOS_Run.command
-│   └── Linux_Run.sh
-│
+├── Readme.md                # Project documentation                    # Launcher scripts for Docker (All OS)
+├── Windows_Run.bat
+├── MacOS_Run.command
+├── Linux_Run.sh
 └── Example_Data.txt         # Links to Download a Small dataset for testing
 ```
 
@@ -198,7 +195,7 @@ Metadoon/
 └── Output/                  # FINAL RESULTS
     ├── Plots (Alpha/Beta diversity, Heatmaps, Rarefaction)
     ├── Statistical Tables (DESeq2, ANCOM-BC, PERMANOVA)
-    └── Metadoon_Report.html # Complete HTML Summary
+└── Metadoon_Report.html # Complete HTML Summary
 ```
 
 ---
