@@ -33,7 +33,7 @@ All major and minor dependencies are pre-installed:
 
 Metadoon could operates entirely locally or using **Docker**. 
 
-### 📋 1. Prerequisites
+### 📋 1. Prerequisites for one-click runners
 
 For running using the shortcuts (.sh - for Linux, .bat for windows).
 
@@ -44,10 +44,12 @@ For running using the shortcuts (.sh - for Linux, .bat for windows).
     2.  **Crucial:** Install [XQuartz](https://www.xquartz.org/) to allow the graphical interface to appear.
         * *After installing XQuartz, go to Preferences > Security and check "Allow connections from network clients".*
 * **Linux Users:** Install [Docker Engine](https://docs.docker.com/engine/install/).
-
+### For running Metadoon with the metadoon.py script
+1. Conda [https://www.anaconda.com/download]
 ---
 
-### 🏃 2. How to Run (One-Click Launchers)
+### 🏃 2. How to Run:
+### One-Click Launchers
 
 You don’t need to type the commands manually each time you run Metadoon — just enable the execution of the .sh or .command scripts on your Unix system.
 A. Go to The root directory of metadoon and type
@@ -69,7 +71,27 @@ Them;
     ```bash
     ./Linux_Run.sh
     ```
-
+### Running the metadoon.py script 
+1. Cloning the repository:
+ ```bash
+git clone https://github.com/rdo-adan/Metadoon.git
+```
+2. Entering Metadoon directory:
+    ```bash
+cd Metadoon/
+    ```
+4. Installing metadoon:
+  ```bash
+bash setup.sh
+    ```
+5. Running Metadoon
+  ```bash
+conda activate metadoon
+    ```
+  ```bash
+python metadoon.py
+    ```
+  
 ---
 
 ### 🧪 3. Testing with Example Data
