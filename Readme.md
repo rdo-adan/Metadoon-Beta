@@ -31,11 +31,11 @@ All major and minor dependencies are pre-installed:
 
 ## *🚀 Installation & Usage*
 
-Metadoon operates entirely locally using **Docker**. This ensures that all dependencies (R, Python, VSEARCH) work perfectly on your machine without complex manual installation.
+Metadoon could operates entirely locally or using **Docker**. 
 
 ### 📋 1. Prerequisites
 
-Before running Metadoon, you must have **Docker** installed and running:
+For running using the shortcuts (.sh - for Linux, .bat for windows).
 
 * **Windows Users:** Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/).
     * *Note:* Ensure "Use WSL 2 based engine" is checked in Docker settings.
@@ -49,27 +49,23 @@ Before running Metadoon, you must have **Docker** installed and running:
 
 ### 🏃 2. How to Run (One-Click Launchers)
 
-You do **not** need to open a terminal or type complex Docker commands manually. We provide automatic launchers for every system.
-
+You don’t need to type the commands manually each time you run Metadoon — just enable the execution of the .sh or .command scripts on your Unix system.
+A. Go to The root directory of metadoon and type
+  ```bash
+    chmod +x *
+    ```
+Them;
 #### 🪟 Windows
 1.  Download and unzip this repository.
-2.  Navigate to the `Run/` folder.
-3.  Double-click **`Windows_Run.bat`**.
-4.  A terminal window will open to start the engine, and the Metadoon GUI will appear shortly.
+2.  Double-click **`Windows_Run.bat`**.
+3.  A terminal window will open to start the engine, and the Metadoon GUI will appear shortly.
 
 #### 🍎 macOS
-1.  Open **XQuartz** first.
-2.  Navigate to the `Run/` folder.
-3.  Right-click **`MacOS_Run.command`** and select *Open*.
+1.  Double-click **`MacOS_Run.command`**.
     * *Note: If macOS prevents execution due to security, go to System Settings > Privacy & Security and allow the script.*
 
 #### 🐧 Linux
-1.  Open a terminal in the `Run/` folder.
-2.  Make the script executable (only needed once):
-    ```bash
-    chmod +x Linux_Run.sh
-    ```
-3.  Run the script:
+1. Double Click Linux_Run.sh
     ```bash
     ./Linux_Run.sh
     ```
