@@ -3,7 +3,6 @@ channels:
   - conda-forge
   - bioconda
   - defaults
-channel_priority: strict
 
 dependencies:
   # --- Python Core & GUI ---
@@ -13,12 +12,12 @@ dependencies:
   - pillow>=10.0           # Icon and Image Manipulation
 
   # --- External Tools ---
-  - vsearch>=2.21.1        # Amplicon Processing (Merging, Filtering, Clustering)
+  - vsearch>=2.21.1        # Amplicon Processing
   - wget                   # Database downloading
   - pandoc>=3.1            # CRITICAL: Required to render RMarkdown to HTML
 
   # --- System Libraries for R (Graphics & Compilation) ---
-  # Critical for generating PNG/PDFs inside Docker/Linux without X11 errors
+  # CRITICAL for macOS/Linux to render fonts and PNGs correctly
   - libcurl
   - libxml2
   - openssl
@@ -28,26 +27,26 @@ dependencies:
   - make
   - libpng                 # PNG support
   - freetype               # Font support
-  - harfbuzz               # Text shaping (crucial for ggplot2 labels)
-  - fribidi                # Text layout
-  - pango                  # Text rendering library
+  - harfbuzz               # Text shaping (Fixes ggplot2 text issues)
+  - fribidi                # Bi-directional text support
+  - pango                  # Text rendering
   - cairo                  # 2D graphics library
 
   # --- R Base ---
-  - r-base=4.4.* # Fixed at version 4.4.x for stability
+  - r-base=4.4.* # Fixed version for stability
 
   # --- R Packages (CRAN) ---
-  - r-devtools             # Tools for package development
+  - r-devtools             # For installing GitHub packages
   - r-remotes              # File downloads
   - r-tidyverse>=2.0       # Data manipulation suite
-  - r-tibble               # Data frames (explicitly required)
-  - r-tidyr                # Data tidying (explicitly required)
+  - r-tibble               # Data frames
+  - r-tidyr                # Data tidying
   - r-reshape2             # Data reshaping
   - r-igraph               # Network analysis
   - r-foreach              # Parallel execution
   - r-lme4                 # Linear mixed-effects models
   - r-ggplot2>=3.4         # Data visualization
-  - r-ggpubr>=0.6          # Publication ready plots
+  - r-ggpubr>=0.6          # Plots with statistics
   - r-cowplot              # Plot arrangement
   - r-dplyr>=1.1           # Data manipulation
   - r-pheatmap             # Heatmaps
@@ -57,17 +56,16 @@ dependencies:
   - r-knitr>=1.4           # Dynamic reporting
   - r-rmarkdown>=2.25      # Markdown rendering
   - r-tinytex              # PDF generation helper
-  - r-vegan>=2.6           # Ecological diversity analysis (NMDS, PERMANOVA)
-  - r-pairwiseadonis       # CRITICAL: Pairwise multilevel comparison using Adonis
+  - r-vegan>=2.6           # Ecological diversity analysis
   - r-jsonlite>=1.8        # Reading JSON parameters
   - r-wesanderson          # Wes Anderson color palettes
   - r-rcolorbrewer         # ColorBrewer palettes
-  - r-ggrepel              # Non-overlapping labels for plots
-  - r-cairo                # R interface to Cairo graphics (for PNG/PDF export)
+  - r-ggrepel              # Non-overlapping labels
+  - r-cairo                # R interface to Cairo graphics
 
   # --- R Packages (Bioconductor) ---
-  - bioconductor-phyloseq>=1.46    # Microbiome data object handling
-  - bioconductor-deseq2>=1.42      # Differential abundance analysis
-  - bioconductor-scater>=1.30      # Single-cell analysis tools (used for QC)
-  - bioconductor-microbiome>=1.24  # Microbiome analysis tools
-  - bioconductor-ancombc>=2.4      # Analysis of Compositions of Microbiomes
+  - bioconductor-phyloseq>=1.46
+  - bioconductor-deseq2>=1.42
+  - bioconductor-scater>=1.30
+  - bioconductor-microbiome>=1.24
+  - bioconductor-ancombc>=2.4
