@@ -1,14 +1,14 @@
-# 🧪 Metadoon - Docker Edition
+# 🧪 Metadoon
 
 <div align="center">
   <img src="OP.png" alt="Metadoon Interface" width="600">
   
   <br><br>
 
-  ![Docker](https://img.shields.io/badge/Docker-Containerized-blue?style=flat&logo=docker)
+  ![Docker](https://img.shields.io/badge/Docker-Supported-blue?style=flat&logo=docker)
+  ![Conda](https://img.shields.io/badge/Conda-Supported-green?style=flat&logo=anaconda)
   ![Python](https://img.shields.io/badge/Python-3.10-yellow?style=flat&logo=python)
   ![R](https://img.shields.io/badge/R-Statistics-blue?style=flat&logo=r)
-  ![VSEARCH](https://img.shields.io/badge/VSEARCH-%E2%89%A52.21.1-green)
   ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
   <p>
@@ -18,210 +18,192 @@
 
 ---
 
-**Metadoon** automates the workflow from FASTQ preprocessing to robust statistical visualization in R, utilizing tools like **VSEARCH** and **Phyloseq**.
-
-### 🐳 **Why Docker Edition?**
-This version runs in a fully containerized environment with **all dependencies pre-installed**. 
-* ❌ No need to install Python, R, or VSEARCH manually.
-* ✅ Compatible with **Windows** (via WSL2), **macOS**, and **Linux**.
+**Metadoon** automates the workflow from FASTQ preprocessing to robust statistical visualization in R, utilizing tools like **VSEARCH** and **Phyloseq**. It features a streamlined **5-step interface** and runs easily via **Docker** or **Natively** via Conda.
 
 ---
 
 ## 📦 What's Included
 
-All major and minor dependencies come pre-installed in the image:
+The environment includes:
 
-| Component | Version | Purpose |
-| :--- | :--- | :--- |
-| **Python** | 3.10 | GUI interface (Tkinter) and pipeline logic |
-| **R** | Latest | Statistical analysis and plotting |
-| **VSEARCH** | ≥ 2.21.1 | FASTQ processing (merge, filter, cluster) |
-| **Pillow** | Latest | Image handling in Python |
-
-### 📊 R Packages (Pre-installed)
-* **CRAN:** `tidyverse`, `ggplot2`, `ggpubr`, `pheatmap`, `viridis`, `ape`, `RColorBrewer`.
-* **Bioconductor:** `phyloseq`, `DESeq2`, `scater`, `ANCOMBC`, `microbiome`.
-* **GitHub:** `pairwiseAdonis`.
+| Component | Purpose |
+| :--- | :--- |
+| **Python 3.10** | GUI interface (Tkinter) and pipeline logic |
+| **R (Latest)** | Statistical analysis and plotting |
+| **VSEARCH** | FASTQ processing (merge, filter, cluster) |
+| **Libraries** | `phyloseq`, `DESeq2`, `ggplot2`, `vegan`, etc. |
 
 ---
 
-## 🚀 Quick Start (One-Click Launchers)
+## 🚀 Option 1: One-Click Launchers
+*Easy start scripts for all platforms.*
 
-Metadoon provides shortcut scripts for a seamless experience. You don't need to type commands manually.
+### ⚠️ First-Time Setup (Permissions)
+**For macOS (`.command`) and Linux (`.sh`) users only:**
+Before running the scripts for the first time, you must grant execution permissions via terminal.
+1. Open a terminal inside the Metadoon folder.
+2. Run the command:
+   ```bash
+   chmod +x *
+   ```
+*Note: **Windows users (`.bat`) DO NOT need this step.** You can run the file directly.*
 
-### 1. Prerequisites
-
-* **Windows Users:** Install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-    * *⚠️ Important:* Ensure **"Use WSL 2 based engine"** is checked in Docker settings.
-* **macOS Users:**
-    1.  Install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-    2.  **Crucial:** Install [XQuartz](https://www.xquartz.org/) (required for the GUI).
-    3.  *Setup:* Open XQuartz > Preferences > Security > Check **"Allow connections from network clients"**.
-* **Linux Users:** Install [Docker Engine](https://docs.docker.com/engine/install/).
+### 1. Prerequisites by OS
+* **Windows & Linux:** [Docker](https://www.docker.com/) installed (Enable WSL 2 for Windows).
+* **macOS:** [Conda](https://www.anaconda.com/download) installed.
+    * *The macOS `.command` launcher runs the **Native Conda** version, not Docker.*
 
 ### 2. How to Run
+Just double-click the launcher for your OS:
 
-First, ensure execute permissions (Unix systems only). In the root directory, run:
+* 🪟 **Windows:** Double-click `Windows_Run.bat` (Runs Docker).
+* 🍎 **macOS:** Double-click `MacOS_Run.command` (Runs Conda/Native).
+* 🐧 **Linux:** Run `./Linux_Run.sh` (Runs Docker).
+
+---
+
+## 🐍 Option 2: Manual Installation (Terminal)
+*Recommended for Linux users or advanced users who prefer manual control.*
+
+Follow these steps to run Metadoon directly on your system without the one-click scripts.
+
+### 1. Prerequisites
+* **Conda** (Anaconda or Miniconda) must be installed.
+
+### 2. Installation & Execution
+Open your terminal and run the following commands in order:
+
+**Step 1: Clone the repository**
+```bash
+git clone https://github.com/rdo-adan/Metadoon.git
+```
+
+**Step 2: Enter the directory**
+```bash
+cd Metadoon/
+```
+
+**Step 3: Grant execution permissions**
+Essential to ensure all scripts can run.
 ```bash
 chmod +x *
 ```
 
-#### 🪟 Windows
-1.  Download and unzip this repository.
-2.  Double-click **`Windows_Run.bat`**.
-3.  A terminal will start the engine, and the GUI will appear shortly.
+**Step 4: Install dependencies**
+This script creates the `metadoon` environment and installs R, Python, and VSEARCH.
+```bash
+bash setup.sh
+```
 
-#### 🍎 macOS
-1.  Double-click **`MacOS_Run.command`**.
-    * *Note:* If macOS blocks execution, go to **System Settings > Privacy & Security** and allow the script.
-
-#### 🐧 Linux
-1.  Double-click or run via terminal:
-    ```bash
-    ./Linux_Run.sh
-    ```
+**Step 5: Activate environment & Run**
+```bash
+conda activate metadoon
+python metadoon.py
+```
 
 ---
 
-## 📂 Handling Files & Docker Mapping
+## 🖥️ Interface & Workflow
 
-When Metadoon launches via Docker, it maps your local folders to the container:
+The new interface guides you through 5 simple steps:
 
-* `/workspace` ⮕ Maps to the **Metadoon folder** (project root). **All results are saved here.**
-* `/app/YOUR_DATA` ⮕ Maps to your computer's **User Profile** (Documents, Downloads, Desktop).
-* `/app/C_Drive` *(Windows Only)* ⮕ Maps to your C: drive.
-
-> **💡 WINDOWS TIP: How to find your files**
-> 1. Click **"Load FASTQ Files"** in the GUI.
-> 2. Double-click the folder named **`YOUR_DATA`**.
-> 3. This opens your user folder (`C:\Users\You`). Navigate to Desktop/Downloads from there.
+1.  **Load FASTQ Files:** Select your raw data (must contain `_R1_` and `_R2_`).
+2.  **Configure Parameters:** Adjust threads, max errors, and databases (optional).
+3.  **RUN PIPELINE:** Starts the analysis (Merge -> Filter -> Cluster -> Taxonomy -> Stats).
+4.  **Generate Report:** Creates the final HTML summary after the run finishes.
+5.  **Save Results:** Exports all tables, plots, and reports to a clean folder.
 
 ---
 
-## 🧪 Testing with Example Data
+## 📂 Handling Files (Docker Users)
 
-Validate your installation with our synthetic dataset.
+If using Docker (Windows/Linux script), Metadoon maps your local folders:
+* `/workspace` ⮕ **Metadoon folder** (Results saved here).
+* `/app/YOUR_DATA` ⮕ **User Profile** (Documents, Downloads).
+* `/app/C_Drive` ⮕ **C: Drive** (Windows only).
 
-1.  [**📥 Download Example Data (.zip)**](https://mega.nz/file/7ywinBYB#uaISNfE7d-9veK9earSEaI2vjR50CSByBKiHwgcToSU)
-2.  Unzip the file.
-3.  Open Metadoon.
-4.  Click **"Load FASTQ Files"** and select the `.fastq` files.
-5.  Select `metadata.tsv` when prompted.
-6.  Click **"Run Pipeline"**.
+> **💡 Native/macOS Users:** You have direct access to your entire file system.
 
 ---
 
-## ⚙️ Pipeline Workflow
+## ⚙️ Pipeline Details
 
-Metadoon executes a standard amplicon analysis workflow:
-
-1.  **Merge Pairs:** Merges R1 and R2 FASTQ files using VSEARCH.
-2.  **Quality Filter:** Filters reads based on Max Expected Error (`fastq_maxee`).
+1.  **Merge Pairs:** Merges R1 and R2 using VSEARCH.
+2.  **Quality Filter:** Filters reads based on MaxEE.
 3.  **Dereplication:** Identifies unique sequences.
-4.  **Clustering / Denoising:**
-    * *OTU:* 97% clustering.
-    * *ASV (ZOTU):* Denoising/Unoising (High resolution).
-5.  **Chimera Removal:** Removes chimeric sequences (De novo + Reference-based).
-6.  **Taxonomy Assignment:** Uses SINTAX algorithm.
-7.  **Statistical Analysis (R):**
-    * Rarefaction Curves.
-    * **Alpha Diversity:** Richness/Evenness (Kruskal-Wallis/ANOVA).
-    * **Beta Diversity:** NMDS/PCoA (PERMANOVA).
-    * **Differential Abundance:** DESeq2 and ANCOM-BC.
+4.  **Clustering:** OTU (97%) or ASV (Denoising).
+5.  **Chimera Removal:** De novo + Reference-based.
+6.  **Taxonomy:** SINTAX algorithm.
+7.  **Statistics (R):** Alpha/Beta Diversity, Rarefaction, DESeq2, ANCOM-BC.
 
 ---
 
 ## 📁 Project Structure
 
-Metadoon organizes your workspace automatically.
+Metadoon automatically manages file organization.
+
+### *Core Files (Before Run)*
+```text
+Metadoon/
+│
+├── metadoon.py              # Main GUI script
+├── Analise.R                # Statistical analysis script (R)
+├── generate_report.R        # Report generation script
+├── Metadoon_Report.Rmd      # RMarkdown template
+├── Dockerfile               # Docker configuration
+├── pipeline_params.json     # Configuration file
+├── metadoon_env.yaml        # Conda environment definition
+├── setup.sh                 # Native installation script (Linux)
+├── LICENSE                  # License file
+├── Readme.md                # Project documentation
+├── Windows_Run.bat          # Launcher scripts for Docker (All OS)
+├── MacOS_Run.command
+├── Linux_Run.sh
+└── Example_Data.txt         # Links to Download a Small dataset for testing
+```
+
+### *Generated Directories (After Run)*
+Once the pipeline runs, Metadoon creates specific folders to organize the workflow:
 
 ```text
 Metadoon/
-├── DB/                  # Reference databases (RDP, Silva)
-├── Metadata File/       # Your metadata
-├── Tree File/           # Phylogenetic tree (optional)
 │
-├── Merged/              # Merged reads
-├── Filtered/            # Quality filtered sequences
-├── Dereplicated/        # Unique sequences
+├── DB/                      # Downloaded reference databases (RDP, Silva, etc.)
+├── Metadata File/           # Stores the uploaded metadata file
+├── Tree File/               # Stores the phylogenetic tree (if provided)
 │
-├── OTUs/                # Clustering results
-│   ├── otus.fasta       # Final Sequences (OTUs/ASVs)
-│   └── otutab.txt       # Abundance table
+├── Merged/                  # Paired-end reads merged by VSEARCH
+├── FullFiles/               # Concatenated merged reads
+├── Filtered/                # Quality filtered sequences
+├── Dereplicated/            # Unique sequences (dereplication)
 │
-├── Taxonomy/            # Classification results
-│   └── taxonomy.txt     # Cleaned taxonomy for R
+├── OTUs/                    # Clustering results
+│   ├── centroids.fasta      # Representative sequences
+│   ├── otus.fasta           # Final OTUs/ASVs (non-chimeric)
+│   └── otutab.txt           # Abundance table
 │
-├── Output/              # 🏆 FINAL RESULTS
-│   ├── Plots/           # Heatmaps, PCoA, Alpha Div, Rarefaction
-│   └── Stats/           # DESeq2, ANCOM-BC tables
+├── Taxonomy/                # Taxonomic classification results
+│   ├── taxonomy_raw.txt     # Raw output from SINTAX
+│   └── taxonomy.txt         # Cleaned taxonomy table for R
 │
-└── Metadoon_Report.html # Complete HTML Summary
+└── Output/                  # FINAL RESULTS
+    ├── Plots (Alpha/Beta diversity, Heatmaps, Rarefaction)
+    ├── Statistical Tables (DESeq2, ANCOM-BC, PERMANOVA)
+    └── Metadoon_Report.html # Complete HTML Summary
 ```
 
 ---
 
 ## ⚠️ Input Data Requirements
 
-To avoid errors, ensure your data meets these criteria:
-
-* **Platform:** Illumina Paired-End sequencing.
-* **Format:** `.fastq` files.
-* **Naming Convention:**
-    * Must contain `_R1_` and `_R2_`.
-    * *Recommended:* `Sample-Name_R1.fastq`.
-    * ❌ **Avoid:** Spaces, special characters, or extra hyphens/underscores in sample names.
-
----
-
-## 🛠️ Advanced: Native Installation (Linux Only)
-
-If you prefer running without Docker using Conda, click below.
-
-<details>
-<summary><b>🔻 Click to expand Native Installation Instructions</b></summary>
-
-This method is recommended for Linux users who want to run tools natively.
-
-**Prerequisites:** Conda (Anaconda or Miniconda).
-
-**1. Clone the repository:**
-```bash
-git clone https://github.com/rdo-adan/Metadoon.git
-cd Metadoon/
-```
-
-**2. Install Dependencies:**
-This script creates the `metadoon` environment and installs Python, R, and VSEARCH.
-```bash
-bash setup.sh
-```
-
-**3. Run:**
-```bash
-conda activate metadoon
-python metadoon.py
-```
-</details>
-
----
-
-## 🗒️ Tools & Reports
-
-### Generating the Report
-1.  Run the pipeline until finished.
-2.  Go to **Tools > Generate Final Report**.
-3.  The `Metadoon_Report.html` will open automatically.
-
-### Saving Results
-1.  Go to **Tools > Save and Clean Results**.
-2.  Select a destination folder.
-3.  Metadoon creates a timestamped archive (e.g., `Metadoon_Results_2025-10-20`) and can optionally delete temporary files (`Merged`, `Filtered`) to save space.
+* **Format:** Illumina Paired-End `.fastq`.
+* **Naming:** Must contain `_R1_` and `_R2_`.
+* **No Special Characters:** Avoid spaces or extra hyphens in sample names.
 
 ---
 
 ## 📬 Contact
 
-For issues, bugs, or questions, please open an Issue on GitHub or contact the maintainer.
+For issues or questions:
+📧 [rdo.adan@gmail.com](mailto:rdo.adan@gmail.com)
 
-📧 **Maintainer:** [rdo.adan@gmail.com](mailto:rdo.adan@gmail.com)
