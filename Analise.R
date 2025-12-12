@@ -241,7 +241,7 @@ tryCatch({
   }
 }, error=function(e) message("Alpha Diversity Failed"))
 
-# --- BETA DIVERSITY (SAFE DATAFRAME) ---
+# --- BETA DIVERSITY (WITH LABELS & COLORS) ---
 dist_obj <- tryCatch(phyloseq::distance(ps, method=dist_method), error=function(e) NULL)
 
 if(!is.null(dist_obj)) {
@@ -255,7 +255,7 @@ if(!is.null(dist_obj)) {
       raw_val <- sample_data(ps)[[var]]
       if(all(is.na(raw_val))) next 
       
-      # 1. Manual Coordinate Extraction
+      # 1. Extract Coords
       coord_df <- NULL
       if(method == "NMDS") {
         coord_df <- as.data.frame(ord$points)
@@ -265,23 +265,24 @@ if(!is.null(dist_obj)) {
         colnames(coord_df) <- c("Axis1", "Axis2")
       }
       
-      # 2. Add Metadata SAFELY (Merge Logic)
+      # 2. Merge Metadata (Safe)
       coord_df$SampleID <- rownames(coord_df)
-      
-      # Create a mini meta dataframe to merge
+      # Create mini meta df matching by rowname
       meta_mini <- data.frame(SampleID = rownames(sample_data(ps)), Group = raw_val)
-      
-      # Merge to ensure alignment
       plot_df <- merge(coord_df, meta_mini, by="SampleID", sort=FALSE)
       
       # 3. Determine Type
       is_numeric_col <- is.numeric(plot_df$Group) && length(unique(plot_df$Group)) > 5
+      
+      # Force Factor if it's categorical (Text or few numbers)
       if(!is_numeric_col) plot_df$Group <- as.factor(plot_df$Group)
       
-      # 4. Plot using clean 'plot_df'
+      # 4. Base Plot
       p <- ggplot(plot_df, aes(x=Axis1, y=Axis2, color=Group)) + 
-        geom_point(size=4, alpha=0.8) + theme_minimal()
+           geom_point(size=4, alpha=0.8) + 
+           theme_minimal()
       
+      # 5. Apply Colors
       if(is_numeric_col) {
         p <- p + scale_color_gradientn(colours=viridis::viridis(10))
       } else {
@@ -289,35 +290,35 @@ if(!is.null(dist_obj)) {
         pal <- get_dynamic_palette(n_grps)
         p <- p + scale_color_manual(values=pal)
         
+        # Ellipse only if possible
         try({
-          if(nrow(plot_df) >= 5 && n_grps > 1 && n_grps < nrow(plot_df)) {
-            p <- p + stat_ellipse(level=0.95, linetype=2)
-          }
+           if(nrow(plot_df) >= 5 && n_grps > 1 && n_grps < nrow(plot_df)) {
+             p <- p + stat_ellipse(level=0.95, linetype=2)
+           }
         }, silent=TRUE)
       }
       
-      # Stats
+      # 6. Add Sample Labels (THE REQUESTED FEATURE)
+      p <- p + geom_text_repel(aes(label = SampleID), size = 3.5, show.legend=FALSE)
+      
+      # 7. Add Stats
       perm_title <- ""
       try({
         if(length(unique(na.omit(raw_val))) > 1 && sum(!is.na(raw_val)) > 1) {
-          # Use plot_df to ensure we match valid samples only
-          d_mat <- as.matrix(dist_obj)
-          valid_s <- plot_df$SampleID
-          d_sub <- as.dist(d_mat[valid_s, valid_s])
-          
-          res_perm <- vegan::adonis2(d_sub ~ plot_df$Group)$`Pr(>F)`[1]
-          p_val_str <- if(res_perm < 0.001) "< 0.001" else signif(res_perm, 3)
-          perm_title <- paste("| PERMANOVA p =", p_val_str)
+           d_mat <- as.matrix(dist_obj)
+           valid_s <- plot_df$SampleID
+           d_sub <- as.dist(d_mat[valid_s, valid_s])
+           res_perm <- vegan::adonis2(d_sub ~ plot_df$Group)$`Pr(>F)`[1]
+           p_val_str <- if(res_perm < 0.001) "< 0.001" else signif(res_perm, 3)
+           perm_title <- paste("| PERMANOVA p =", p_val_str)
         }
       }, silent=TRUE)
       
-      p <- p + geom_text_repel(aes(label = SampleID), size = 3.5, show.legend=FALSE)
       p <- p + labs(title=paste(method, "-", var), subtitle=perm_title, color=var, x="Axis 1", y="Axis 2")
       save_p(p, paste0("beta_diversity_", method, "_", var, ".png"))
     }
   }
 }
-
 # --- RDA ---
 run_global_rda <- function(ps) {
   meta <- as(sample_data(ps), "data.frame")
