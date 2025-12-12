@@ -13,11 +13,12 @@ dependencies:
   - pillow>=10.0           # Icon and Image Manipulation
 
   # --- External Tools ---
-  - vsearch>=2.21.1        # Amplicon Processing
+  - vsearch>=2.21.1        # Amplicon Processing (Merging, Filtering, Clustering)
   - wget                   # Database downloading
   - pandoc>=3.1            # CRITICAL: Required to render RMarkdown to HTML
 
-  # --- System Libraries for R (Compilation) ---
+  # --- System Libraries for R (Graphics & Compilation) ---
+  # Critical for generating PNG/PDFs inside Docker/Linux without X11 errors
   - libcurl
   - libxml2
   - openssl
@@ -25,40 +26,48 @@ dependencies:
   - mpfr
   - libuv
   - make
-  - libpng                 # Required for R plotting
-  - freetype               # Fonts for plots
+  - libpng                 # PNG support
+  - freetype               # Font support
+  - harfbuzz               # Text shaping (crucial for ggplot2 labels)
+  - fribidi                # Text layout
+  - pango                  # Text rendering library
+  - cairo                  # 2D graphics library
 
   # --- R Base ---
   - r-base=4.4.* # Fixed at version 4.4.x for stability
 
   # --- R Packages (CRAN) ---
-  - r-devtools             # For installing GitHub packages
-  - r-remotes
-  - r-tidyverse>=2.0
-  - r-reshape2
-  - r-igraph
-  - r-foreach
-  - r-lme4
-  - r-ggplot2>=3.4
-  - r-ggpubr>=0.6          # Plots with statistics
-  - r-cowplot              # Plot combination/arrangement
-  - r-dplyr>=1.1
+  - r-devtools             # Tools for package development
+  - r-remotes              # File downloads
+  - r-tidyverse>=2.0       # Data manipulation suite
+  - r-tibble               # Data frames (explicitly required)
+  - r-tidyr                # Data tidying (explicitly required)
+  - r-reshape2             # Data reshaping
+  - r-igraph               # Network analysis
+  - r-foreach              # Parallel execution
+  - r-lme4                 # Linear mixed-effects models
+  - r-ggplot2>=3.4         # Data visualization
+  - r-ggpubr>=0.6          # Publication ready plots
+  - r-cowplot              # Plot arrangement
+  - r-dplyr>=1.1           # Data manipulation
   - r-pheatmap             # Heatmaps
-  - r-viridis              # Accessible color palettes
+  - r-viridis              # Color palettes
   - r-ape>=5.7             # Phylogenetics
-  - r-rprojroot            # Project root directory management
+  - r-rprojroot            # Project root finding
   - r-knitr>=1.4           # Dynamic reporting
-  - r-rmarkdown>=2.25      # Dynamic reporting
-  - r-tinytex              # PDF support (optional, but good to have)
-  - r-vegan>=2.6           # CRITICAL: Ecological analysis (NMDS, Shannon, etc.)
-  - r-jsonlite>=1.8        # CRITICAL: Reading pipeline_params.json
-  - r-wesanderson          # Color palettes (added based on script usage)
-  - r-rcolorbrewer         # Color palettes (added based on script usage)
-  - r-ggrepel              # Non-overlapping text labels in plots
+  - r-rmarkdown>=2.25      # Markdown rendering
+  - r-tinytex              # PDF generation helper
+  - r-vegan>=2.6           # Ecological diversity analysis (NMDS, PERMANOVA)
+  - r-pairwiseadonis       # CRITICAL: Pairwise multilevel comparison using Adonis
+  - r-jsonlite>=1.8        # Reading JSON parameters
+  - r-wesanderson          # Wes Anderson color palettes
+  - r-rcolorbrewer         # ColorBrewer palettes
+  - r-ggrepel              # Non-overlapping labels for plots
+  - r-cairo                # R interface to Cairo graphics (for PNG/PDF export)
 
   # --- R Packages (Bioconductor) ---
-  - bioconductor-phyloseq>=1.46
-  - bioconductor-deseq2>=1.42
-  - bioconductor-scater>=1.30
-  - bioconductor-microbiome>=1.24
-  - bioconductor-ancombc>=2.4
+  - bioconductor-phyloseq>=1.46    # Microbiome data object handling
+  - bioconductor-deseq2>=1.42      # Differential abundance analysis
+  - bioconductor-scater>=1.30      # Single-cell analysis tools (used for QC)
+  - bioconductor-microbiome>=1.24  # Microbiome analysis tools
+  - bioconductor-ancombc>=2.4      # Analysis of Compositions of Microbiomes
