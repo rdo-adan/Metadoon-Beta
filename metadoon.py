@@ -141,49 +141,6 @@ class ConfigContainer:
 
 config_container = ConfigContainer()
 
-
-def organize_output():
-    """
-    Organizes the messy Output folder into structured subfolders.
-    """
-    safe_log("\n>>> Organizing Output Files...\n")
-    
-    base_output = os.path.join(os.getcwd(), 'Output')
-    if not os.path.exists(base_output):
-        return
-
-    # Define structure
-    structure = {
-        'Plots/Alpha_Diversity': ['alpha_diversity_', 'rarefaction_curve'],
-        'Plots/Beta_Diversity': ['beta_diversity_'],
-        'Plots/Taxonomy': ['abundance_', 'core_microbiome_'],
-        'Plots/Differential_Abundance': ['deseq2_diff_', 'ancombc_diff_'],
-        'Tables/Differential_Abundance': ['DESeq2_', 'ANCOMBC_'],
-        'Tables/Statistics': ['permanova_result_']
-    }
-
-    # Create folders
-    for folder in structure.keys():
-        os.makedirs(os.path.join(base_output, folder), exist_ok=True)
-
-    # Move files
-    files = os.listdir(base_output)
-    for f in files:
-        src = os.path.join(base_output, f)
-        if not os.path.isfile(src): continue
-        
-        moved = False
-        for folder, patterns in structure.items():
-            if any(p in f for p in patterns):
-                dst = os.path.join(base_output, folder, f)
-                shutil.move(src, dst)
-                moved = True
-                break
-        
-        # Optional: Move remaining files to a "Misc" folder if needed
-        # if not moved: ...
-
-    safe_log(">>> Output Organized Successfully.\n")
 # --- CONFIG WINDOW ---
 def configure_execution():
     config_window = tk.Toplevel()
@@ -473,7 +430,7 @@ def clean_workspace():
     safe_log("\n>>> Starting Workspace Cleanup...\n")
     base_dir = os.getcwd()
     
-    folders_to_remove = ['Merged', 'Filtered', 'Dereplicated', 'OTUs', 'Taxonomy', 'DB', 'FullFiles', 'Output', 'Metadata File', 'Tree File']
+    folders_to_remove = ['Merged', 'Filtered', 'Dereplicated', 'OTUs', 'Taxonomy', 'DB', 'FullFiles', 'Output', 'Metadata File', 'Tree File', 'TempInput']
     files_to_remove = ['pipeline_params.json', 'Metadoon_Report.html', 'Rplots.pdf', '.RData', '.Rhistory','metadoon_session.log']
 
     for folder in folders_to_remove:
@@ -505,15 +462,11 @@ def clean_workspace():
     except Exception as e:
         safe_log(f"Error refreshing UI: {e}\n")
 
-# --- PIPELINE EXECUTION ---
-def run_pipeline():
-    loading = LoadingWindow(root, "Running Pipeline")
-    t = threading.Thread(target=execute_pipeline, args=(loading,))
-    t.start()
-
+# --- GLOBAL ORGANIZATION FUNCTION ---
 def organize_output():
     """
     Organizes the messy Output folder into structured subfolders.
+    Safe to call multiple times (idempotent).
     """
     safe_log("\n>>> Organizing Output Files...\n")
     
@@ -526,7 +479,7 @@ def organize_output():
         'Plots/Alpha_Diversity': ['alpha_diversity_', 'rarefaction_curve'],
         'Plots/Beta_Diversity': ['beta_diversity_'],
         'Plots/Taxonomy': ['abundance_', 'core_microbiome_'],
-        'Plots/Differential_Abundance': ['deseq2_diff_', 'ancombc_diff_'],
+        'Plots/Differential_Abundance': ['deseq2_diff_', 'ancombc_diff_', 'ancombc_bar', 'ancombc_heatmap'],
         'Tables/Differential_Abundance': ['DESeq2_', 'ANCOMBC_'],
         'Tables/Statistics': ['permanova_result_']
     }
@@ -541,18 +494,20 @@ def organize_output():
         src = os.path.join(base_output, f)
         if not os.path.isfile(src): continue
         
-        moved = False
         for folder, patterns in structure.items():
             if any(p in f for p in patterns):
                 dst = os.path.join(base_output, folder, f)
+                # Overwrite if exists
                 shutil.move(src, dst)
-                moved = True
                 break
-        
-        # Optional: Move remaining files to a "Misc" folder if needed
-        # if not moved: ...
-
+    
     safe_log(">>> Output Organized Successfully.\n")
+
+# --- PIPELINE EXECUTION ---
+def run_pipeline():
+    loading = LoadingWindow(root, "Running Pipeline")
+    t = threading.Thread(target=execute_pipeline, args=(loading,))
+    t.start()
 
 def execute_pipeline(loading_window):
     try:
@@ -775,6 +730,10 @@ def execute_pipeline(loading_window):
             if process.returncode == 0:
                 safe_log(process.stdout)
                 safe_log("\n>>> R Analysis Completed Successfully!\n")
+                
+                # IMPORTANT: Organize Output here so report finds files in subfolders
+                organize_output()
+                
                 root.after(0, lambda: messagebox.showinfo("Success", "Pipeline Finished!"))
             else:
                 safe_log("Error in R Analysis:\n")
@@ -787,7 +746,6 @@ def execute_pipeline(loading_window):
         safe_log(f"\nCRITICAL ERROR: {str(e)}\n")
         print(traceback.format_exc())
     finally:
-        organize_output()
         root.after(0, loading_window.close)
 
 
@@ -819,12 +777,13 @@ def execute_report(loading_window):
         root.after(0, loading_window.close)
 
 def save_analysis_results():
-
     parent_dir = filedialog.askdirectory(title="Select Parent Folder to Save Results")
     if not parent_dir:
         return
 
     try:
+        # 1. Organize BEFORE Saving
+        organize_output()
 
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         folder_name = f"Metadoon_Results_{timestamp}"
@@ -838,18 +797,15 @@ def save_analysis_results():
         
         curr = os.getcwd()
         
-
         targets = [
-            'Output',             # Gráficos e Tabelas Estatísticas
-            'Metadoon_Report.html', # Relatório Final
-            'pipeline_params.json', # Parâmetros usados
-            'OTUs',               # Tabelas de OTU e Sequências Finais
-            'Taxonomy',           # Classificação Taxonômica
-            'Metadata File',      # IMPORTANTE: Salva o metadado usado
-            'Tree File',          # IMPORTANTE: Salva a árvore usada
-            'Merged',             # Opcional: Reads unidos
-            'Filtered',           # Opcional: Reads filtrados
-            'metadoon_session.log'
+            'Output',             # Organized Plots & Tables
+            'Metadoon_Report.html', # Final HTML Report
+            'pipeline_params.json', # Config
+            'OTUs',               # Processed Data
+            'Taxonomy',           # Taxonomy Data
+            'Metadata File',      # Input Metadata
+            'Tree File',          # Input Tree
+            'metadoon_session.log' # Log file
         ]
         
         saved_any = False
@@ -859,24 +815,19 @@ def save_analysis_results():
             if os.path.exists(src):
                 final_dst = os.path.join(dest_path, item)
                 
-                
                 if os.path.isdir(src):
                     if os.path.exists(final_dst): shutil.rmtree(final_dst)
                     shutil.copytree(src, final_dst)
-               
                 else:
                     shutil.copy2(src, final_dst)
                 
                 saved_any = True
         
         if saved_any:
-            
             if messagebox.askyesno("Cleanup", f"Results saved in:\n{folder_name}\n\nDo you want to clean the workspace (delete temporary files)?"):
                 clean_workspace()
             else:
                 messagebox.showinfo("Saved", f"Results saved successfully in:\n{dest_path}")
-                
-                
                 try:
                     if platform.system() == "Windows":
                         os.startfile(dest_path)
@@ -884,8 +835,7 @@ def save_analysis_results():
                         subprocess.Popen(["open", dest_path])
                     else: # Linux
                         subprocess.Popen(["xdg-open", dest_path])
-                except:
-                    pass
+                except: pass
         else:
             messagebox.showwarning("Warning", "No result files were found to save. Did you run the pipeline?")
             try: os.rmdir(dest_path) 

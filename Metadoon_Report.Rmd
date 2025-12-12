@@ -10,7 +10,7 @@ geometry: margin=1in
 ---
 
 ```{r setup, include=FALSE}
-# --- CONFIGURAÇÃO LEVE ---
+# --- LIGHTWEIGHT CONFIGURATION ---
 library(knitr)
 library(jsonlite)
 library(rprojroot)
@@ -20,13 +20,26 @@ knitr::opts_chunk$set(
   message = FALSE, 
   warning = FALSE, 
   fig.align = 'center',
-  results = 'asis', 
+  results = 'asis', # Allows conditional HTML generation
   out.width = "90%"
 )
 
-# Localiza a pasta Output (Flat structure: all PNGs inside Output/)
+# Locate the Output folder
 script_dir <- tryCatch(find_root(has_file("Analise.R")), error = function(e) getwd())
 output_dir <- file.path(script_dir, "Output")
+
+# Helper function to find a single file (Recursive = finds inside subfolders)
+find_file <- function(pattern_str) {
+  # Search recursively in Output/ and subfolders
+  files <- list.files(output_dir, pattern = pattern_str, full.names = TRUE, recursive = TRUE)
+  # Returns the first found or NULL
+  if(length(files) > 0) return(files[1]) else return(NULL)
+}
+
+# Helper function to find LISTS of files (Recursive)
+find_files_list <- function(pattern_str) {
+  list.files(output_dir, pattern = pattern_str, full.names = TRUE, recursive = TRUE)
+}
 
 print_warning <- function(msg) {
   cat(paste0("<div class='alert alert-warning' style='padding: 10px; border: 1px solid transparent; border-radius: 4px; color: #8a6d3b; background-color: #fcf8e3; border-color: #faebcc;'><strong>Note:</strong> ", msg, "</div>\n"))
@@ -42,11 +55,11 @@ The rarefaction curve provides insight into the richness of microbial communitie
 Rarefaction assesses sampling completeness and alpha diversity (richness and evenness within samples), essential for metagenomic studies like 16S rRNA or shotgun sequencing. Despite debates on its limitations for rare species extrapolation, it remains a robust normalization method for uneven data.
 
 ```{r rarefact_data, include=TRUE, echo= FALSE}
-# Search directly in Output/
-rare_file <- file.path(output_dir, "rarefaction_curve.png")
+# Smart search (works with or without subfolders)
+img <- find_file("rarefaction_curve.png")
 
-if(file.exists(rare_file)) {
-  knitr::include_graphics(rare_file)
+if(!is.null(img)) {
+  knitr::include_graphics(img)
 } else {
   print_warning("Rarefaction curve not generated.")
 }
@@ -64,9 +77,10 @@ ranks <- c("Phylum", "Class", "Order", "Family", "Genus")
 found_any <- FALSE
 
 for(rank in ranks) {
-  # Search directly in Output/
-  img <- file.path(output_dir, paste0("abundance_", rank, ".png"))
-  if(file.exists(img)) {
+  # Search specific Rank file
+  img <- find_file(paste0("abundance_", rank, ".png"))
+  
+  if(!is.null(img)) {
     found_any <- TRUE
     cat(paste0("\n### ", rank, "\n"))
     cat(paste0("![](", img, ")\n"))
@@ -93,8 +107,9 @@ The core microbiome refers to the set of microbial taxa that are consistently de
 ```{r core_microbiome, include=TRUE, echo=FALSE, out.extra='style="margin-top:60px;"', out.width="100%"}
 found_any <- FALSE
 for(rank in ranks) {
-  img <- file.path(output_dir, paste0("core_microbiome_heatmap_", rank, ".png"))
-  if(file.exists(img)) {
+  img <- find_file(paste0("core_microbiome_heatmap_", rank, ".png"))
+  
+  if(!is.null(img)) {
     found_any <- TRUE
     cat(paste0("\n### ", rank, "\n"))
     cat(paste0("![](", img, ")\n"))
@@ -119,9 +134,8 @@ if(!found_any) {
 Alpha diversity metrics quantify the diversity within a single microbial community (sample). They describe both richness (number of taxa) and evenness (how uniformly the taxa are distributed). Commonly used indices include Observed, Chao1, ACE (richness estimators), Shannon (balance between richness and evenness), and Simpson (probability that two individuals randomly selected belong to the same species).
 
 ```{r alpha_diversity, include=TRUE, echo= FALSE, out.width="49%", fig.show='hold'}
-# --- ALPHA DIVERSITY (Intelligent: Boxplot for Groups / Scatter + Gradient for Numeric) ---
-# Search directly in Output/
-alpha_files <- list.files(output_dir, pattern = "alpha_diversity_.*\\.png", full.names = TRUE)
+# Recursive search for all Alpha plots
+alpha_files <- find_files_list("alpha_diversity_.*\\.png")
 
 if(length(alpha_files) > 0) {
   for(f in alpha_files) {
@@ -153,11 +167,11 @@ if(length(alpha_files) > 0) {
 
 Beta diversity evaluates the differences in microbial composition between samples or groups. It measures the extent to which communities share similar taxa and relative abundances. NMDS (Non-metric Multidimensional Scaling) is a common ordination method used to visualize beta diversity.
 
-## NMDS
+## NMDS & PCoA
 
 ```{r beta_diversity_nmds_pcoa, include=TRUE, echo= FALSE}
-# --- BETA DIVERSITY (NMDS & PCoA) ---
-plot_files <- list.files(output_dir, pattern = "beta_diversity_.*\\.png", full.names = TRUE)
+plot_files <- find_files_list("beta_diversity_.*\\.png")
+# Remove RDA from normal Beta list
 beta_files <- plot_files[!grepl("RDA", plot_files)]
 
 if(length(beta_files) > 0) {
@@ -179,7 +193,7 @@ Each point represents a microbial community from a sample. - Samples closer toge
 Global RDA is a constrained ordination method used to quantify how much of the variation in community composition can be explicitly explained by environmental or metadata variables. Unlike unconstrained methods (like PCoA or NMDS) that visualize total variation, RDA models the linear relationship between species abundance (Hellinger-transformed) and explanatory variables.
 
 ```{r rda-analysis, out.width="49%", fig.show='hold', fig.align='default'}
-rda_files <- list.files(output_dir, pattern = "beta_diversity_RDA.*\\.png", full.names = TRUE)
+rda_files <- find_files_list("beta_diversity_RDA.*\\.png")
 
 if(length(rda_files) > 0) {
   for(f in rda_files) {
@@ -207,7 +221,7 @@ Significance (ANOVA): A permutation test is performed on the RDA model to determ
 DESeq2 identifies taxa that are differentially abundant between sample groups based on count data. It models the counts using a negative binomial distribution and performs statistical testing to identify significant log2 fold changes between conditions.
 
 ```{r deseq2-analysis, out.width="49%", fig.show='hold', fig.align='default'}
-deseq_files <- list.files(output_dir, pattern = "deseq2_diff_.*\\.png", full.names = TRUE)
+deseq_files <- find_files_list("deseq2_diff_.*\\.png")
 
 if(length(deseq_files) > 0) {
   for(f in deseq_files) {
@@ -235,7 +249,8 @@ Taxonomic Level: Analyses are run at multiple ranks (Phylum to OTU) to detect bo
 ANCOM-BC (Analysis of Compositions of Microbiomes with Bias Correction) is a method designed to identify differentially abundant taxa while accounting for the compositional nature of microbiome data (where total counts are constrained). It estimates the unknown sampling fractions and corrects the bias introduced by differences in sequencing depth.
 
 ```{r ancombc-analysis, out.width="49%", fig.show='hold', fig.align='default', results='asis'}
-ancom_files <- list.files(output_dir, pattern = "ancombc_heatmap_.*\\.png", full.names = TRUE)
+# Matches both heatmap and barplot styles generated by the script
+ancom_files <- find_files_list("ancombc_.*\\.png")
 
 if(length(ancom_files) > 0) {
   for(f in ancom_files) {
