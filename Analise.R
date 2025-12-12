@@ -1,9 +1,22 @@
 ################################### Loading Packages ########################################
 
+# 1. Install missing CRAN/Bioconda packages if possible
 required_packages <- c("phyloseq", "vegan", "ggplot2", "ggpubr", "cowplot", "dplyr", 
                        "DESeq2", "scater", "rprojroot", "pheatmap", 
                        "viridis", "ape", "microbiome", "wesanderson", "RColorBrewer", 
                        "ANCOMBC", "ggrepel", "tibble", "tidyr")
+
+# 2. Check and Install PairwiseAdonis (Github Only)
+if (!require("pairwiseAdonis", quietly = TRUE)) {
+  message("Installing pairwiseAdonis from GitHub...")
+  if (!require("devtools", quietly = TRUE)) install.packages("devtools", repos = "http://cran.us.r-project.org")
+  tryCatch({
+    devtools::install_github("pmartinezarbizu/pairwiseAdonis")
+    library(pairwiseAdonis)
+  }, error = function(e) {
+    message("Failed to install pairwiseAdonis. Pairwise comparisons in Beta Diversity might be skipped.")
+  })
+}
 
 suppressPackageStartupMessages({
   sapply(required_packages, require, character.only = TRUE)
