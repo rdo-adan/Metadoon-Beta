@@ -1,256 +1,39 @@
 ---
 title: "Metadoon Analysis Report"
-output: html_document
+output: 
+  html_document:
+    theme: cosmo
+    toc: true
+    toc_float: true
 fontsize: 11pt
 geometry: margin=1in
 ---
 
 ```{r setup, include=FALSE}
-# --- LOAD PACKAGES ---
-library(phyloseq)
-library(vegan)
-library(ggplot2)
-library(ggpubr)
-library(cowplot)
-library(dplyr)
-library(DESeq2)
-library(scater)
-library(rprojroot)
-library(pheatmap)
-library(viridis)
-library(ape)
-library(microbiome)
-library(wesanderson)
-library(RColorBrewer)
+# --- CONFIGURAÇÃO LEVE ---
+library(knitr)
 library(jsonlite)
-library(ggrepel)
-library(ANCOMBC)
+library(rprojroot)
 
-# --- GLOBAL KNITR OPTIONS ---
 knitr::opts_chunk$set(
   echo = FALSE, 
   message = FALSE, 
   warning = FALSE, 
-  fig.keep = 'all', 
   fig.align = 'center',
-  out.extra = 'style="margin-top:30px;"'
+  results = 'asis', 
+  out.width = "90%"
 )
 
-# --- HELPER FUNCTIONS ---
-`%||%` <- function(a, b) if (!is.null(a)) a else b
-
-# --- DIRECTORY SETUP ---
-# Tenta localizar a raiz. Se falhar, usa o diretório atual.
+# Localiza a pasta Output (Flat structure: all PNGs inside Output/)
 script_dir <- tryCatch(find_root(has_file("Analise.R")), error = function(e) getwd())
 output_dir <- file.path(script_dir, "Output")
-if (!dir.exists(output_dir)) dir.create(output_dir)
 
-# --- LOAD PARAMETERS ---
-params_file <- file.path(script_dir, "pipeline_params.json")
-if (file.exists(params_file)) {
-  params <- fromJSON(params_file)
-} else {
-  params <- list()
+print_warning <- function(msg) {
+  cat(paste0("<div class='alert alert-warning' style='padding: 10px; border: 1px solid transparent; border-radius: 4px; color: #8a6d3b; background-color: #fcf8e3; border-color: #faebcc;'><strong>Note:</strong> ", msg, "</div>\n"))
 }
-
-# --- PARAMETER ASSIGNMENT ---
-stat_test <- "kruskal.test"  # Default non-parametric test for Alpha Diversity
-dist_method <- "bray"        # Default distance for Beta Diversity
-color_palette <- params$color_palette %||% "viridis"
-abundance_top_n <- params$abundance_top_n %||% 15
-core_top_n <- params$core_top_n %||% 30
-rarefaction_step <- params$rarefaction_step %||% 100
-rarefaction_cex <- params$rarefaction_cex %||% 0.6
-rarefaction_label <- params$rarefaction_label %||% FALSE
-enable_rarefaction <- params$enable_rarefaction %||% FALSE
-rarefaction_depth <- params$rarefaction_depth %||% 1000
-
-# --- PALETTES ---
-get_palette <- function(palette_name) {
-  switch(palette_name,
-         viridis = viridis::viridis(10),
-         plasma = viridis::plasma(10),
-         inferno = viridis::inferno(10),
-         magma = viridis::magma(10),
-         cividis = viridis::cividis(10),
-         wesanderson = wesanderson::wes_palette("Darjeeling1", 5, type = "discrete"),
-         RColorBrewer::brewer.pal(10, "Set3")
-  )
-}
-palette_base <- get_palette(color_palette)
-
-get_dynamic_palette <- function(base_palette, n_colors) {
-  if (n_colors > length(base_palette)) {
-    return(colorRampPalette(base_palette)(n_colors))
-  } else {
-    return(base_palette[1:n_colors])
-  }
-}
-# --- FILE PATHS ---
-
-
-otu_file <- file.path(script_dir, "OTUs/otutab.txt")
-taxonomy_file <- file.path(script_dir, "Taxonomy/taxonomy.txt")
-metadata_dir <- file.path(script_dir, "Metadata File")
-tree_file_path <- file.path(script_dir, "Tree File/tree.nwk")
-
-# Output directory
-output_dir <- file.path(script_dir, "Output")
-if (!dir.exists(output_dir)) dir.create(output_dir)
-
-save_plot <- function(plot, filename, width = 12, height = 8) {
-  ggsave(filename = file.path(output_dir, filename), plot = plot, width = width, height = height, dpi = 600, bg = "white")
-}
-
-metadata_files <- list.files(path = metadata_dir, pattern = "\\.(tsv|csv|txt)$", full.names = TRUE, ignore.case = TRUE)
-
-if (length(metadata_files) > 0) {
-  target_file <- metadata_files[1] 
-  message(paste("Processing metadata file:", basename(target_file)))
-  con_raw <- file(target_file, "rb")
-  bom <- readBin(con_raw, "raw", 2)
-  close(con_raw)
-  is_utf16le <- (length(bom) >= 2 && bom[1] == as.raw(0xff) && bom[2] == as.raw(0xfe))
-  if (is_utf16le) {
-    message("Encoding detected: UTF-16LE (Windows format). Converting to UTF-8...")
-    con <- file(target_file, open = "r", encoding = "UTF-16LE")
-    file_lines <- readLines(con, warn = FALSE)
-    close(con)
-  } else {
-    message("Encoding detected: Standard (UTF-8/ASCII).")
-    file_lines <- readLines(target_file, warn = FALSE)
-  }
-  
-  file_lines <- iconv(file_lines, to = "UTF-8")
-  file_lines <- gsub("\r", "", file_lines) 
-  header_line <- file_lines[1]
-  raw_header <- utf8ToInt(header_line)
-  n_tab <- sum(raw_header == 9)
-  n_comma <- sum(raw_header == 44)
-  n_semi <- sum(raw_header == 59)
-  
-  if (n_tab > n_comma && n_tab > n_semi) {
-    detected_sep <- "\t"
-    sep_name <- "TAB"
-  } else if (n_semi > n_comma) {
-    detected_sep <- ";"
-    sep_name <- "SEMICOLON"
-  } else {
-    detected_sep <- ","
-    sep_name <- "COMMA"
-  }
-  
-  message(paste("Separator detected:", sep_name))
-  
-  
-  metadataTab <- read.table(text = file_lines, 
-                            header = TRUE, 
-                            row.names = 1, 
-                            sep = detected_sep, 
-                            check.names = FALSE, 
-                            fill = TRUE, 
-                            quote = "",
-                            comment.char = "")
-  
-  
-  rownames(metadataTab) <- trimws(rownames(metadataTab))
-  
-  message("Metadata loaded successfully.")
-  
-} else {
-  stop("No metadata file (csv, tsv, txt) found in the specified directory.")
-}
-############################# Create `phyloseq` Object ###################################
-
-# 1. Load Tables
-message("Loading OTU and Taxonomy tables...")
-
-otu_mat <- as.matrix(read.table(otu_file, header = TRUE, sep = "\t", row.names = 1, check.names = FALSE, comment.char = ""))
-tax_mat <- as.matrix(read.table(taxonomy_file, header = TRUE, sep = "\t", row.names = 1, check.names = FALSE, fill = TRUE, comment.char = ""))
-
-colnames(otu_mat) <- trimws(colnames(otu_mat))
-rownames(tax_mat) <- trimws(rownames(tax_mat))
-rownames(otu_mat) <- trimws(rownames(otu_mat))
-
-message("--- Debugging Sample Names ---")
-message("OTU Table Columns (First 5):")
-print(head(colnames(otu_mat), 5))
-
-
-common_taxa <- intersect(rownames(otu_mat), rownames(tax_mat))
-
-if(length(common_taxa) == 0) {
-  # Debug info se der erro
-  print("Head OTU Table IDs:")
-  print(head(rownames(otu_mat)))
-  print("Head Tax Table IDs:")
-  print(head(rownames(tax_mat)))
-  stop("CRITICAL ERROR: No common OTUs found between OTU Table and Taxonomy.")
-}
-
-message(paste("Syncing: Keeping", length(common_taxa), "common OTUs."))
-otu_mat_clean <- otu_mat[common_taxa, ]
-tax_mat_clean <- tax_mat[common_taxa, ]
-
-
-if(exists("metadataTab")){
-  # Limpa nomes do metadado também
-  rownames(metadataTab) <- trimws(rownames(metadataTab))
-  
-  message("Metadata Rows (First 5):")
-  print(head(rownames(metadataTab), 5))
-  
-  common_samples <- intersect(colnames(otu_mat_clean), rownames(metadataTab))
-  
-  if(length(common_samples) == 0){
-    message("\n!!! SAMPLE MISMATCH DETECTED !!!")
-    message("Samples in OTU Table:")
-    print(colnames(otu_mat_clean))
-    message("Samples in Metadata:")
-    print(rownames(metadataTab))
-    stop("Error: No common samples between OTU table and Metadata! Check names above.")
-  } else {
-    otu_mat_clean <- otu_mat_clean[, common_samples]
-    metadataTab_clean <- metadataTab[common_samples, , drop=FALSE]
-    message(paste("Syncing: Keeping", length(common_samples), "common samples."))
-  }
-} else {
-  metadataTab_clean <- NULL
-}
-
-
-Arv <- NULL
-if (file.exists(tree_file_path)) {
-  message("Tree file found. Loading...")
-  tryCatch({
-    Arv <- read.tree(tree_file_path)
-    message("Tree loaded successfully.")
-  }, error = function(e) {
-    warning(paste("Error loading tree:", e$message))
-    Arv <- NULL
-  })
-}
-
-
-if (is.null(Arv)) {
-  ps <- phyloseq(
-    otu_table(otu_mat_clean, taxa_are_rows = TRUE),
-    tax_table(tax_mat_clean),
-    sample_data(metadataTab_clean)
-  )
-} else {
-  ps <- phyloseq(
-    otu_table(otu_mat_clean, taxa_are_rows = TRUE),
-    tax_table(tax_mat_clean),
-    sample_data(metadataTab_clean),
-    phy_tree(Arv)
-  )
-}
-
-print(ps)
 ```
 
-### Rarefaction Curve
+# Rarefaction Curve
 
 The rarefaction curve provides insight into the richness of microbial communities across samples. It estimates the number of observed species (or OTUs) as a function of the sequencing depth. A plateau indicates sufficient sampling depth. A rarefaction curve graphically represents the expected number of observed species (or operational taxonomic units, OTUs) in microbial communities as sequencing depth increases through repeated random subsampling of reads. This standardization allows fair comparisons of species richness across samples with unequal sequencing efforts, mitigating biases from varying library sizes.
 
@@ -259,72 +42,42 @@ The rarefaction curve provides insight into the richness of microbial communitie
 Rarefaction assesses sampling completeness and alpha diversity (richness and evenness within samples), essential for metagenomic studies like 16S rRNA or shotgun sequencing. Despite debates on its limitations for rare species extrapolation, it remains a robust normalization method for uneven data.
 
 ```{r rarefact_data, include=TRUE, echo= FALSE}
-# Extract OTU table as matrix
-otu <- as(otu_table(ps), "matrix")
-if (!taxa_are_rows(ps)) {
-  otu <- t(otu)
+# Search directly in Output/
+rare_file <- file.path(output_dir, "rarefaction_curve.png")
+
+if(file.exists(rare_file)) {
+  knitr::include_graphics(rare_file)
 } else {
-  otu <- t(otu) # Rarecurve expects samples as rows
+  print_warning("Rarefaction curve not generated.")
 }
-
-# Plot rarefaction curve
-vegan::rarecurve(otu, step = rarefaction_step, cex = rarefaction_cex, label = rarefaction_label)
-title("Rarefaction Curve")
-
-# Apply Rarefaction if enabled
-rarefy_phyloseq <- function(ps, depth = rarefaction_depth) {
-  if (enable_rarefaction) {
-    min_reads <- min(sample_sums(ps))
-    if (depth > min_reads) {
-      depth <- min_reads
-    }
-    ps_rarefied <- rarefy_even_depth(ps, sample.size = depth, replace = TRUE, verbose = FALSE)
-    return(ps_rarefied)
-  } else {
-    return(ps)
-  }
-}
-# Update ps object for downstream analysis
-ps <- rarefy_phyloseq(ps)
 ```
 
-#Interpretation: 
+### Interpretation: 
 Samples that plateau have been sequenced to near saturation. - Curves that rise sharply with no sign of plateau suggest under-sampling.
 
-### Relative abundance:
+# Relative abundance:
 
 Relative abundance analysis illustrates the proportional representation of microbial taxa within each sample, typically aggregated at different taxonomic levels (e.g., Phylum, Genus). These stacked bar plots help visualize shifts in the dominant microbial community composition across experimental groups or conditions.
 
 ```{r relative_abundance, include=TRUE, echo= FALSE}
-save_plot <- function(plot, filename, width = 12, height = 8) {
-  ggsave(filename = file.path(output_dir, filename), plot = plot, width = width, height = height, dpi = 300, bg = "white")
+ranks <- c("Phylum", "Class", "Order", "Family", "Genus")
+found_any <- FALSE
+
+for(rank in ranks) {
+  # Search directly in Output/
+  img <- file.path(output_dir, paste0("abundance_", rank, ".png"))
+  if(file.exists(img)) {
+    found_any <- TRUE
+    cat(paste0("\n### ", rank, "\n"))
+    cat(paste0("![](", img, ")\n"))
+  }
 }
 
-plot_abundance <- function(ps, taxrank, top_n = abundance_top_n) {
-  ps_tax <- tax_glom(ps, taxrank = taxrank)
-  ps_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
-  taxa_sums <- taxa_sums(ps_rel)
-  top_taxa <- names(sort(taxa_sums, decreasing = TRUE)[1:top_n])
-  tax_table(ps_rel)[!(taxa_names(ps_rel) %in% top_taxa), taxrank] <- "Others"
-  
-  n_colors_needed <- length(unique(psmelt(ps_rel)[[taxrank]]))
-  pal <- get_dynamic_palette(palette_base, n_colors_needed)
-
-  p <- ggplot(psmelt(ps_rel), aes(x = Sample, y = Abundance, fill = !!sym(taxrank))) +
-    geom_bar(stat = "identity") +
-    labs(title = paste("Relative Abundance by", taxrank), x = "Sample", y = "Relative Abundance") +
-    theme_minimal(base_size = 14) +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-    scale_fill_manual(values = pal)
-  save_plot(p, paste0("abundance_", taxrank, ".png"), width = 16, height = 10)
-  print(p)
-}
-
-for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
-  plot_abundance(ps, rank)
+if(!found_any) {
+  print_warning("No Abundance plots found.")
 }
 ```
-
+### Interpretation: 
 -   Each bar represents the composition of one sample, with colors indicating the relative proportions of taxa.
 
 -   Taxa with higher proportions (larger segments) dominate the microbial community.
@@ -333,61 +86,26 @@ for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
 
 -   The "Others" category groups less abundant taxa to reduce noise and improve clarity.
 
-### Core-Microbiome:
+# Core-Microbiome:
 
 The core microbiome refers to the set of microbial taxa that are consistently detected across a defined proportion of samples within a group. Identifying core taxa is essential for understanding the stable and potentially functionally important members of the microbial community. In the heatmaps below, prevalence (frequency of detection) and detection thresholds (minimum relative abundance) are used to determine which taxa are considered part of the core microbiome.
 
 ```{r core_microbiome, include=TRUE, echo=FALSE, out.extra='style="margin-top:60px;"', out.width="100%"}
-# Updated parameters for better detection
-prevalences <- seq(0.05, 1, 0.05)
-detections <- c(0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
-
-plot_core_heatmap <- function(ps, taxrank, top_n = core_top_n) {
-  
-  tryCatch({
-    ps_tax <- tax_glom(ps, taxrank)
-    ps_tax_rel <- transform_sample_counts(ps_tax, function(x) x / sum(x))
-    
-    prev_table <- microbiome::prevalence(ps_tax_rel)
-    if(length(prev_table) == 0) return(NULL)
-
-    top_taxa <- names(sort(prev_table, decreasing = TRUE)[1:min(length(prev_table), top_n)])
-    ps_top_taxa <- prune_taxa(top_taxa, ps_tax_rel)
-    
-    # Replace OTU IDs with Taxa Names
-    tax_mat <- as(tax_table(ps_top_taxa), "matrix")
-    tax_names <- tax_mat[, taxrank]
-    tax_names[is.na(tax_names)] <- taxa_names(ps_top_taxa)[is.na(tax_names)]
-    taxa_names(ps_top_taxa) <- tax_names
-    
-    n_colors_needed <- length(taxa_names(ps_top_taxa)) 
-    pal <- get_dynamic_palette(palette_base, n_colors_needed) 
-    
-    p <- plot_core(ps_top_taxa,
-                   plot.type = "heatmap",
-                   prevalences = prevalences,
-                   detections = detections,
-                   min.prevalence = 0.2) + # Ajustado
-      xlab("Detection Threshold (Relative Abundance)") +
-      ylab(taxrank) +
-      scale_fill_gradientn(colours = pal) +
-      theme_minimal() +
-      ggtitle(paste("Core Microbiome at", taxrank, "Level")) +
-      scale_x_discrete(breaks = as.character(detections))
-      
-    save_plot(p, paste0("core_microbiome_heatmap_", taxrank, ".png"), width = 16, height = 10)
-    print(p)
-    
-  }, error = function(e) {
-    cat(paste("Skipping Core Heatmap for", taxrank, ": Insufficient data."))
-  })
+found_any <- FALSE
+for(rank in ranks) {
+  img <- file.path(output_dir, paste0("core_microbiome_heatmap_", rank, ".png"))
+  if(file.exists(img)) {
+    found_any <- TRUE
+    cat(paste0("\n### ", rank, "\n"))
+    cat(paste0("![](", img, ")\n"))
+  }
 }
 
-for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
-  plot_core_heatmap(ps, rank)
+if(!found_any) {
+  print_warning("Core Microbiome analysis skipped (insufficient prevalence or data structure).")
 }
 ```
-
+### Interpretation: 
 -   Rows represent taxa and columns represent detection thresholds.
 
 -   Colors indicate the proportion of samples in which the taxon is detected at or above the threshold.
@@ -396,107 +114,25 @@ for (rank in c("Phylum", "Class", "Order", "Family", "Genus")) {
 
 -   Patterns can be compared across taxonomic levels (e.g., Phylum vs. Genus) for broader or finer biological insights.
 
-### Alpha Diversity:
+# Alpha Diversity:
 
 Alpha diversity metrics quantify the diversity within a single microbial community (sample). They describe both richness (number of taxa) and evenness (how uniformly the taxa are distributed). Commonly used indices include Observed, Chao1, ACE (richness estimators), Shannon (balance between richness and evenness), and Simpson (probability that two individuals randomly selected belong to the same species).
 
 ```{r alpha_diversity, include=TRUE, echo= FALSE, out.width="49%", fig.show='hold'}
 # --- ALPHA DIVERSITY (Intelligent: Boxplot for Groups / Scatter + Gradient for Numeric) ---
-plot_alpha_diversity <- function(ps) {
-  
-  if (!dir.exists("Output")) dir.create("Output")
-  
-  # Calcula índices
-  # Suppress warnings para evitar spam no relatório (ex: singletons)
-  suppressWarnings({
-    alpha_div <- estimate_richness(ps, measures = c("Shannon", "Simpson", "Chao1", "ACE", "Observed"))
-  })
-  alpha_div$SampleID <- rownames(alpha_div)
-  
-  meta_data <- as(sample_data(ps), "data.frame")
-  meta_data$SampleID <- rownames(meta_data)
-  
-  alpha_merged <- merge(alpha_div, meta_data, by = "SampleID")
-  meta_columns <- setdiff(colnames(meta_data), "SampleID")
-  
-  target_indices <- c("Observed", "Chao1", "ACE", "Shannon", "Simpson")
-  available_indices <- intersect(target_indices, colnames(alpha_merged))
+# Search directly in Output/
+alpha_files <- list.files(output_dir, pattern = "alpha_diversity_.*\\.png", full.names = TRUE)
 
-  # Define método estatístico fixo (não-paramétrico)
-  stat_method <- "kruskal.test"
-  
-  for (meta_var in meta_columns) {
-    
-    # Check Type
-    raw_vals <- meta_data[[meta_var]]
-    clean_vals <- na.omit(raw_vals)
-    
-    if (length(unique(clean_vals)) < 2) next
-    
-    is_numeric_var <- is.numeric(clean_vals)
-    
-    # Imprime Subtítulo no Relatório para separar as variáveis
-    cat(paste0("\n#### Variable: ", meta_var, "\n"))
-    
-    # Configura Paleta se for categórico
-    if (!is_numeric_var) {
-      pal <- get_dynamic_palette(palette_base, length(unique(clean_vals)))
-    }
-    
-    for (index in available_indices) {
-      
-      plot_df <- data.frame(
-        Sample = alpha_merged$SampleID, 
-        Diversity = alpha_merged[[index]], 
-        Variable = alpha_merged[[meta_var]] 
-      )
-      plot_df <- na.omit(plot_df)
-      
-      if (is_numeric_var) {
-        # --- SCATTER PLOT (NUMERIC) ---
-        p <- ggplot(plot_df, aes(x = Variable, y = Diversity, color = Variable)) +
-          geom_point(size = 3, alpha = 0.8) +
-          geom_smooth(method = "lm", color = "black", linetype = "dashed", se = TRUE, alpha = 0.2) +
-          ggpubr::stat_cor(method = "pearson", label.x.npc = "left", label.y.npc = "top") +
-          scale_color_gradientn(colours = palette_base) +
-          labs(title = paste(index, "vs", meta_var), 
-               x = meta_var, y = index, color = meta_var) +
-          theme_minimal(base_size = 12)
-          
-      } else {
-        # --- BOXPLOT (CATEGORICAL) ---
-        plot_df$Variable <- as.factor(plot_df$Variable)
-        
-        p_label <- ""
-        tryCatch({
-          stat_res <- compare_means(Diversity ~ Variable, data = plot_df, method = stat_method)
-          p_label <- paste0("(p = ", stat_res$p.format, ")")
-        }, error = function(e) { p_label <<- "" })
-        
-        p <- ggboxplot(plot_df, x = "Variable", y = "Diversity", color = "Variable", add = "jitter") +
-          labs(title = paste(index, "-", p_label), 
-               x = "", y = index, color = meta_var) +
-          theme_minimal(base_size = 12) +
-          scale_color_manual(values = pal) +
-          theme(axis.text.x = element_text(angle = 45, hjust = 1))
-      }
-      
-      # Salva o PNG (Silencioso)
-      ggsave(filename = file.path("Output", paste0("alpha_diversity_", index, "_", meta_var, ".png")), 
-             plot = p, width = 6, height = 5, dpi = 300, bg = "white")
-      
-      # Imprime no Relatório HTML (CRUCIAL)
-      print(p)
-      
-      # Adiciona espaço vertical no HTML
-      cat("\n\n")
-    }
+if(length(alpha_files) > 0) {
+  for(f in alpha_files) {
+    cat(paste0("![](", f, ")\n\n"))
   }
+} else {
+  print_warning("No Alpha Diversity plots generated. Check your metadata groups.")
 }
-
-plot_alpha_diversity(ps)
 ```
 
+### Interpretation: 
 -   Observed: the raw count of taxa detected in each sample.
 
 -   Chao1: an estimator that infers the total richness by accounting for rare taxa.
@@ -513,7 +149,7 @@ plot_alpha_diversity(ps)
 
 > -- These metrics are useful to compare how diverse microbial communities are across treatments or conditions. Large differences in alpha diversity may indicate ecological responses to environmental or experimental variables. -- Use this analysis to pinpoint key taxa that respond to experimental treatments or environmental gradients.
 
-### Beta Diversity:
+# Beta Diversity:
 
 Beta diversity evaluates the differences in microbial composition between samples or groups. It measures the extent to which communities share similar taxa and relative abundances. NMDS (Non-metric Multidimensional Scaling) is a common ordination method used to visualize beta diversity.
 
@@ -521,266 +157,40 @@ Beta diversity evaluates the differences in microbial composition between sample
 
 ```{r beta_diversity_nmds_pcoa, include=TRUE, echo= FALSE}
 # --- BETA DIVERSITY (NMDS & PCoA) ---
-plot_beta <- function(ps, method_ord, filename_prefix) {
-  
-  if (!dir.exists("Output")) dir.create("Output")
+plot_files <- list.files(output_dir, pattern = "beta_diversity_.*\\.png", full.names = TRUE)
+beta_files <- plot_files[!grepl("RDA", plot_files)]
 
-  meta_data <- as(sample_data(ps), "data.frame")
-  meta_data$SampleID <- rownames(meta_data)
-  meta_columns <- setdiff(colnames(meta_data), "SampleID")
-  
-
-  dist_mat <- phyloseq::distance(ps, method = dist_method)
-
-  ord <- tryCatch({
-    ordinate(ps, method = method_ord, distance = dist_mat)
-  }, error = function(e) NULL)
-  
-  if (is.null(ord)) {
-    message(paste("Skipping", method_ord, "- Ordination failed."))
-    return()
+if(length(beta_files) > 0) {
+  for(f in beta_files) {
+    cat(paste0("![](", f, ")\n\n"))
   }
-
-  stress_info <- ""
-  if (method_ord == "NMDS") {
-    stress_val <- tryCatch(ord$stress, error = function(e) NA)
-    if (!is.na(stress_val)) {
-      stress_info <- paste("| Stress =", signif(stress_val, 3))
-    }
-  }
-  
-  for (meta_var in meta_columns) {
-
-    valid_idx <- !is.na(meta_data[[meta_var]])
-    if (sum(valid_idx) < 2) next
-    
-
-    val_vector <- meta_data[[meta_var]][valid_idx]
-    is_numeric <- is.numeric(val_vector)
-
-    if (!is_numeric && length(unique(val_vector)) < 2) next
-    
-    perm_p <- tryCatch({
-      dist_sub <- dist_subset(dist_mat, valid_idx) 
-      meta_sub <- meta_data[valid_idx, ]
-      
-      f <- as.formula(paste("dist_sub ~", meta_var))
-      res <- vegan::adonis2(f, data = meta_sub, permutations = 999)
-      signif(res$`Pr(>F)`[1], 3)
-    }, error = function(e) "NA")
-
-    p <- plot_ordination(ps, ord, type = "samples", color = meta_var) +
-      geom_point(size = 3, alpha = 0.8) +
-      labs(title = paste(method_ord, "-", meta_var),
-           subtitle = paste("PERMANOVA p =", perm_p, stress_info),
-           color = meta_var) +
-      theme_minimal(base_size = 14)
-    
-
-    if (is_numeric) {
-
-      p <- p + scale_color_gradientn(colours = palette_base)
-    } else {
-
-      n_groups <- length(unique(val_vector))
-      pal <- get_dynamic_palette(palette_base, n_groups)
-      
-      p <- p + 
-        stat_ellipse(geom = "polygon", alpha = 0.1, show.legend = FALSE, level = 0.95) +
-        scale_color_manual(values = pal)
-    }
-    
-    save_plot(p, paste0("beta_diversity_", filename_prefix, "_", meta_var, ".png"), width = 10, height = 8)
-    print(p)
-  }
+} else {
+  print_warning("No Beta Diversity plots generated. Requires sufficient sample variance.")
 }
-
-
-dist_subset <- function(d, idx) {
-  m <- as.matrix(d)
-  as.dist(m[idx, idx])
-}
-
-plot_beta(ps, "NMDS", "NMDS")
-plot_beta(ps, "PCoA", "PCoA")
 ```
 
-#Interpretation: 
+### Interpretation: 
 Each point represents a microbial community from a sample. - Samples closer together are more similar in composition. - Ellipses indicate clustering patterns by metadata group. - NMDS (Non-metric Multidimensional Scaling): focuses on rank-order distances; does not preserve exact distances but reveals relative similarities. Good for complex, non-linear relationships. - PCoA (Principal Coordinates Analysis): preserves actual distances as well as possible; useful when understanding variance structure of dissimilarity matrix.
 
-### Permanova:
 
-PERMANOVA is a non-parametric method used to test whether the centroids (i.e., average community compositions) of different groups differ significantly. It uses permutations on a distance matrix to assess whether the observed differences between groups are greater than expected by chance.
 
-```{r permanova, include=TRUE, echo= FALSE}
-run_permanova <- function(ps) {
-  
-  if (!dir.exists("Output")) dir.create("Output")
-  
-  meta_data <- as(sample_data(ps), "data.frame")
-  dist_bc <- phyloseq::distance(ps, method = "bray")
-  meta_columns <- colnames(meta_data)
-  
-  for (meta_var in meta_columns) {
-    
-    formula <- as.formula(paste("dist_bc ~", meta_var))
-    permanova_result <- adonis2(formula, data = meta_data, permutations = 999)
-    
-    result_file <- paste0("Output/permanova_result_", meta_var, ".txt")
-    
-    write.table(permanova_result, file = result_file, sep = "\t", col.names = NA, quote = FALSE)
-    
-    message(paste0("PERMANOVA result saved for ", meta_var))
-    print(permanova_result)
-  }
-}
-run_permanova(ps)
-```
-
-#Interpretation: 
-The pseudo-F statistic indicates the ratio of between-group to within-group variance. - A low p-value (\< 0.05) suggests significant differences in community composition between groups. - PERMANOVA assumes similar dispersion among groups; pair this analysis with a check for homogeneity of dispersion (e.g., using betadisper).
-
-### Global RDA (Redundancy Analysis):
+# Global RDA (Redundancy Analysis):
 
 Global RDA is a constrained ordination method used to quantify how much of the variation in community composition can be explicitly explained by environmental or metadata variables. Unlike unconstrained methods (like PCoA or NMDS) that visualize total variation, RDA models the linear relationship between species abundance (Hellinger-transformed) and explanatory variables.
 
 ```{r rda-analysis, out.width="49%", fig.show='hold', fig.align='default'}
-# --- GLOBAL RDA (Numeric Arrows + Categorical Colors) ---
-run_global_rda <- function(ps) {
-  
-  if (!dir.exists("Output")) dir.create("Output")
-  if(!require("ggrepel", quietly=TRUE)) library(ggrepel)
-  
-  # 1. Prepare Data
-  ps_hel <- transform_sample_counts(ps, function(x) sqrt(x / sum(x)))
-  otu_mat <- t(as(otu_table(ps_hel), "matrix"))
-  meta_df <- as(sample_data(ps_hel), "data.frame")
-  
-  # 2. Separate Numeric vs Categorical Variables
-  numeric_cols <- c()
-  factor_cols <- c()
-  
-  for(col in setdiff(colnames(meta_df), "SampleID")) {
-    val <- meta_df[[col]]
-    if(all(is.na(val))) next
-    
-    if(is.numeric(val) && length(unique(val)) > 1) {
-      numeric_cols <- c(numeric_cols, col)
-    } else if(length(unique(val)) > 1 && length(unique(val)) < nrow(meta_df)) {
-      factor_cols <- c(factor_cols, col)
-    }
-  }
-  
-  # Need at least 1 numeric variable for arrows to make sense in this context
-  if (length(numeric_cols) < 1) {
-    message("Skipping Global RDA: No numeric environmental variables found for arrows.")
-    return(NULL)
-  }
-  
-  cat(paste0("Running RDA with Environmental Variables (Arrows): ", paste(numeric_cols, collapse=", "), "\n"))
-  
-  # Subset Data (Complete cases for numeric vars)
-  meta_env <- meta_df[, numeric_cols, drop=FALSE]
-  valid_idx <- complete.cases(meta_env)
-  
-  if(sum(valid_idx) < 3) {
-    message("Skipping RDA: Too few complete samples.")
-    return(NULL)
-  }
-  
-  otu_use <- otu_mat[valid_idx, ]
-  meta_env_use <- meta_env[valid_idx, , drop=FALSE]
-  meta_cat_use <- meta_df[valid_idx, factor_cols, drop=FALSE]
-  
-  tryCatch({
-    # 3. Run RDA constrained ONLY by Numeric Variables (Environmental)
-    # This creates the arrows for pH, Temp, etc.
-    rda_model <- vegan::rda(otu_use ~ ., data = meta_env_use, scale = TRUE)
-    
-    # Check
-    if(is.null(rda_model$CCA) || rda_model$CCA$rank == 0) return()
-    
-    # 4. Stats
-    anova_global <- vegan::anova.cca(rda_model, permutations = 999)
-    p_val <- anova_global$`Pr(>F)`[1]
-    r2_adj <- vegan::RsquareAdj(rda_model)$adj.r.squared
-    r2_txt <- if(is.na(r2_adj) || r2_adj < 0) "< 1%" else paste0(round(r2_adj * 100, 1), "%")
-    
-    # 5. Extract Scores
-    sc <- scores(rda_model, display = c("sites", "bp"), scaling = 2)
-    
-    df_sites <- as.data.frame(sc$sites)
-    df_arrows <- as.data.frame(sc$biplot)
-    df_arrows$Label <- rownames(df_arrows)
-    
-    # Scale arrows to fit plot
-    mult <- min(
-      (max(df_sites$RDA1) - min(df_sites$RDA1)) / (max(df_arrows$RDA1) - min(df_arrows$RDA1)),
-      (max(df_sites$RDA2) - min(df_sites$RDA2)) / (max(df_arrows$RDA2) - min(df_arrows$RDA2))
-    ) * 0.8
-    
-    df_arrows$RDA1 <- df_arrows$RDA1 * mult
-    df_arrows$RDA2 <- df_arrows$RDA2 * mult
-    
-    # Axis Labels
-    eig <- rda_model$CCA$eig
-    var_pct <- round(eig / sum(rda_model$tot.chi) * 100, 1)
-    
-    # 6. Plot Loop (Color by each Categorical Variable)
-    # We generate one plot for each categorical variable (Type, Biome, etc.)
-    # showing the same RDA arrows (pH, Temp) but colored differently.
-    
-    # If no categorical vars, create a dummy group
-    if(length(factor_cols) == 0) {
-      factor_cols <- c("None")
-      meta_cat_use$None <- "All Samples"
-    }
-    
-    for (cat_var in factor_cols) {
-      
-      df_sites$Group <- meta_cat_use[[cat_var]]
-      n_groups <- length(unique(df_sites$Group))
-      pal <- get_dynamic_palette(palette_base, n_groups)
-      
-      p <- ggplot(df_sites, aes(x = RDA1, y = RDA2)) +
-        geom_vline(xintercept = 0, linetype="dashed", color="grey80") +
-        geom_hline(yintercept = 0, linetype="dashed", color="grey80") +
-        
-        # Arrows (Environmental Vectors)
-        geom_segment(data = df_arrows, aes(x = 0, y = 0, xend = RDA1, yend = RDA2),
-                     arrow = arrow(length = unit(0.2, "cm")), color = "red", linewidth = 0.8) +
-        
-        geom_text_repel(data = df_arrows, aes(x = RDA1, y = RDA2, label = Label),
-                        color = "red", fontface = "bold", bg.color = "white", bg.r = 0.15) +
-        
-        # Samples
-        geom_point(aes(color = as.factor(Group), fill = as.factor(Group)), size = 3, shape = 21, alpha = 0.8) +
-        
-        # Ellipses
-        stat_ellipse(aes(color = as.factor(Group)), geom="polygon", alpha=0.1, show.legend = FALSE, level=0.95) +
-        
-        scale_color_manual(values = pal, name = cat_var) +
-        scale_fill_manual(values = pal, name = cat_var) +
-        
-        labs(title = paste("RDA - Environment vs", cat_var),
-             subtitle = paste("Vectors: ", paste(numeric_cols, collapse=", "), "\nStats: p =", signif(p_val, 3), "| R2.adj =", r2_txt),
-             x = paste0("RDA1 (", var_pct[1], "%)"),
-             y = paste0("RDA2 (", var_pct[2], "%)")) +
-        theme_minimal(base_size = 14)
-      
-      save_plot(p, paste0("beta_diversity_RDA_Env_vs_", cat_var, ".png"), width = 10, height = 8)
-      print(p)
-    }
-    
-  }, error = function(e) {
-    message(paste("Global RDA Failed:", e$message))
-  })
-}
+rda_files <- list.files(output_dir, pattern = "beta_diversity_RDA.*\\.png", full.names = TRUE)
 
-run_global_rda(ps)
+if(length(rda_files) > 0) {
+  for(f in rda_files) {
+    cat(paste0("![](", f, ")\n\n"))
+  }
+} else {
+  print_warning("RDA skipped. This analysis requires **Numeric** environmental variables (e.g., pH, Temperature) in the metadata.")
+}
 ```
 
-# Interpretation:
+### Interpretation:
 
 RDA Axes: The percentage of variance shown on the axes (RDA1, RDA2) represents the variation explained by your metadata constraints.
 
@@ -792,136 +202,23 @@ Adjusted R²: Represents the total percentage of community variation explained b
 
 Significance (ANOVA): A permutation test is performed on the RDA model to determine if the relationship between the metadata and the community is statistically significant (p \< 0.05).
 
-### Deseq2:
+# Deseq2:
 
 DESeq2 identifies taxa that are differentially abundant between sample groups based on count data. It models the counts using a negative binomial distribution and performs statistical testing to identify significant log2 fold changes between conditions.
 
 ```{r deseq2-analysis, out.width="49%", fig.show='hold', fig.align='default'}
-# --- DESEQ2 (Smart Labels for Numeric Variables) ---
-run_deseq2 <- function(ps) {
-  
-  ranks_to_analyze <- c("OTU", "Genus", "Family", "Order", "Class", "Phylum")
-  meta_data <- as(sample_data(ps), "data.frame")
-  meta_columns <- setdiff(colnames(meta_data), "SampleID")
-  full_tax_table <- as.data.frame(tax_table(ps))
-  
-  get_pretty_name_vectorized <- function(ids, tax_df, current_rank) {
-    sapply(ids, function(id) {
-      if(!id %in% rownames(tax_df)) return(id)
-      if (current_rank != "OTU") {
-        val <- tax_df[id, current_rank]
-        if (!is.na(val) && val != "" && val != "NA") return(val)
-      }
-      row <- tax_df[id, ]
-      for (r in c("Species", "Genus", "Family", "Order", "Class", "Phylum")) {
-        val <- row[[r]]
-        if (!is.na(val) && val != "" && val != "NA") {
-          if (current_rank == "OTU") return(paste0(val, " (", id, ")"))
-          return(val)
-        }
-      }
-      return(id)
-    })
+deseq_files <- list.files(output_dir, pattern = "deseq2_diff_.*\\.png", full.names = TRUE)
+
+if(length(deseq_files) > 0) {
+  for(f in deseq_files) {
+    cat(paste0("![](", f, ")\n\n"))
   }
-  
-  for (rank in ranks_to_analyze) {
-    cat(paste0("\n[DESeq2] Processing Rank: ", rank, "\n"))
-    
-    if (rank == "OTU") { ps_run <- ps } else {
-      ps_run <- tryCatch(tax_glom(ps, taxrank = rank, NArm = FALSE), error = function(e) NULL)
-    }
-    if (is.null(ps_run)) next
-    
-    local_tax_table <- as.data.frame(tax_table(ps_run))
-    
-    for (meta_var in meta_columns) {
-      
-    
-      is_numeric <- is.numeric(meta_data[[meta_var]])
-      
-     
-      if (!is_numeric && length(unique(na.omit(meta_data[[meta_var]]))) < 2) next
-      
-  
-      if (is_numeric) {
-        pairs <- list(c(meta_var, "Numeric")) # Dummy pair for loop
-      } else {
-        groups <- unique(as.character(na.omit(meta_data[[meta_var]])))
-        pairs <- combn(groups, 2, simplify = FALSE)
-      }
-      
-      tryCatch({
-       
-        if (!is_numeric) {
-          ps_sub <- subset_samples(ps_run, !is.na(get(meta_var)))
-          dds <- phyloseq_to_deseq2(ps_sub, as.formula(paste("~", meta_var)))
-        } else {
-          
-          valid_samples <- rownames(meta_data)[!is.na(meta_data[[meta_var]])]
-          ps_sub <- prune_samples(valid_samples, ps_run)
-          dds <- phyloseq_to_deseq2(ps_sub, as.formula(paste("~", meta_var)))
-        }
-        
-        dds <- estimateSizeFactors(dds, type = "poscounts")
-        dds <- DESeq(dds, test="Wald", fitType="parametric", quiet=TRUE)
-        
-        for (pair in pairs) {
-          
-          if (is_numeric) {
-            
-            res <- results(dds, name = meta_var, cooksCutoff = FALSE)
-            comp_name <- paste0(meta_var, "_correlation")
-            title_text <- paste("DESeq2 Correlation:", meta_var)
-            legend_labels <- c(paste("Decreases with", meta_var), paste("Increases with", meta_var))
-            
-          } else {
-            g1 <- pair[1]; g2 <- pair[2]
-            res <- results(dds, contrast = c(meta_var, g1, g2), cooksCutoff = FALSE)
-            comp_name <- paste0(meta_var, "_", g1, "_vs_", g2)
-            title_text <- paste("DESeq2:", g1, "vs", g2)
-            legend_labels <- c(paste("Higher in", g2), paste("Higher in", g1))
-          }
-          
-          res_df <- as.data.frame(res)
-          
-        
-          ids <- rownames(res_df)
-          if (rank == "OTU") {
-            names_vec <- get_pretty_name_vectorized(ids, full_tax_table, "OTU")
-          } else {
-            names_vec <- get_pretty_name_vectorized(ids, local_tax_table, rank)
-          }
-          res_df$Taxon <- names_vec
-          res_df$OTU_ID <- ids
-          
-          write.csv(res_df %>% select(Taxon, OTU_ID, everything()), 
-                    file.path(output_dir, paste0("DESeq2_ALL_", comp_name, "_", rank, ".csv")), row.names=FALSE)
-          
-          # Plot Signif
-          sig <- subset(res_df, padj < 0.05)
-          
-          if (nrow(sig) > 0) {
-            if (nrow(sig) > 20) sig <- head(sig[order(abs(sig$log2FoldChange), decreasing=TRUE),], 20)
-            sig$Taxon <- factor(sig$Taxon, levels = sig$Taxon[order(sig$log2FoldChange)])
-            
-            p <- ggplot(sig, aes(x = Taxon, y = log2FoldChange, fill = log2FoldChange > 0)) +
-              geom_bar(stat = "identity") + coord_flip() +
-              labs(title = title_text, subtitle = paste("Rank:", rank), x = "", y = "Log2 Fold Change") +
-              scale_fill_manual(values = c("red", "blue"), labels = legend_labels, name = "Effect") +
-              theme_minimal()
-            
-            save_plot(p, paste0("deseq2_diff_", comp_name, "_", rank, ".png"))
-            print(p)
-          }
-        }
-      }, error=function(e) message(paste("DESeq2 error:", e$message)))
-    }
-  }
+} else {
+  print_warning("No significant results from DESeq2. This analysis requires at least 2 groups with replicates. If skipped, check if your groups have enough samples.")
 }
-run_deseq2(ps)
 ```
 
-# Interpretation:
+### Interpretation:
 
 Log2 Fold Change (LFC): Indicates the magnitude and direction of the change.
 
@@ -938,203 +235,18 @@ Taxonomic Level: Analyses are run at multiple ranks (Phylum to OTU) to detect bo
 ANCOM-BC (Analysis of Compositions of Microbiomes with Bias Correction) is a method designed to identify differentially abundant taxa while accounting for the compositional nature of microbiome data (where total counts are constrained). It estimates the unknown sampling fractions and corrects the bias introduced by differences in sequencing depth.
 
 ```{r ancombc-analysis, out.width="49%", fig.show='hold', fig.align='default', results='asis'}
-# --- ANCOM-BC (Smart Labels for Numeric) ---
-run_ancombc <- function(ps) {
-  require(dplyr); require(tidyr)
-  
-  ranks <- c("OTU", "Genus", "Family", "Order", "Class", "Phylum")
-  meta_data <- as(sample_data(ps), "data.frame")
-  meta_columns <- setdiff(colnames(meta_data), "SampleID")
-  full_tax <- as.data.frame(tax_table(ps))
-  
-  get_pretty_name_vectorized <- function(ids, tax_df, current_rank) {
-    sapply(ids, function(id) {
-      if(!id %in% rownames(tax_df)) return(id)
-      if (current_rank != "OTU") {
-        val <- tax_df[id, current_rank]
-        if (!is.na(val) && val != "" && val != "NA") return(val)
-      }
-      row <- tax_df[id, ]
-      for (r in c("Species", "Genus", "Family", "Order", "Class", "Phylum")) {
-        val <- row[[r]]
-        if (!is.na(val) && val != "" && val != "NA") {
-          if (current_rank == "OTU") return(paste0(val, " (", id, ")"))
-          return(val)
-        }
-      }
-      return(id)
-    })
+ancom_files <- list.files(output_dir, pattern = "ancombc_heatmap_.*\\.png", full.names = TRUE)
+
+if(length(ancom_files) > 0) {
+  for(f in ancom_files) {
+    cat(paste0("![](", f, ")\n\n"))
   }
-  
-  for (rank in ranks) {
-    cat(paste0("\n[ANCOM-BC] Processing Rank: ", rank, "\n"))
-    
-    if (rank == "OTU") { ps_run <- ps } else {
-      ps_run <- tryCatch(tax_glom(ps, taxrank = rank, NArm = FALSE), error=function(e) NULL)
-    }
-    if (is.null(ps_run)) next
-    
-    local_tax <- as.data.frame(tax_table(ps_run))
-    
-    for (var in meta_columns) {
-      
-      # Check if Numeric or Categorical
-      is_numeric <- is.numeric(meta_data[[var]])
-      
-      # Pre-check
-      if (!is_numeric && length(unique(na.omit(meta_data[[var]]))) < 2) next
-      
-      tryCatch({
-        # Filter small groups only if categorical
-        if (!is_numeric) {
-          valid <- names(which(table(meta_data[[var]]) >= 2))
-          if(length(valid) < 2) next
-          keep <- sample_data(ps_run)[[var]] %in% valid
-          ps_sub <- prune_samples(keep, ps_run)
-        } else {
-          # For numeric, just remove NAs
-          valid_s <- rownames(meta_data)[!is.na(meta_data[[var]])]
-          ps_sub <- prune_samples(valid_s, ps_run)
-        }
-        ps_sub <- prune_taxa(taxa_sums(ps_sub) > 0, ps_sub)
-        
-        # Run
-        out <- ancombc(data=ps_sub, formula=var, p_adj_method="holm", group=var, struc_zero=TRUE, neg_lb=TRUE, tol=1e-5, max_iter=100, conserve=TRUE, alpha=0.05, global=TRUE)
-        res <- out$res
-        
-        # Translate Names
-        lfc_df <- as.data.frame(res$lfc)
-        ids <- if("taxon" %in% colnames(lfc_df)) lfc_df$taxon else rownames(lfc_df)
-        
-        if (rank == "OTU") names_vec <- get_pretty_name_vectorized(ids, full_tax, "OTU")
-        else names_vec <- get_pretty_name_vectorized(ids, local_tax, rank)
-        
-        lfc_df$Taxon <- names_vec; lfc_df$ID <- ids
-        write.csv(lfc_df %>% select(Taxon, ID, everything()), file.path(output_dir, paste0("ANCOMBC_LFC_", var, "_", rank, ".csv")), row.names=FALSE)
-        
-        # Plot
-        sig_idx <- apply(res$diff_abn, 1, any, na.rm=TRUE)
-        if (sum(sig_idx) > 0) {
-          beta <- lfc_df[sig_idx, , drop=FALSE]
-          
-          # If Numeric: Simple Bar Plot with Correlation Logic
-          if (is_numeric) {
-            df_plot <- data.frame(Label = beta$Taxon, LFC = beta[[var]]) # Numeric vars usually have 1 column named after var
-            
-            if(nrow(df_plot) > 20) df_plot <- head(df_plot[order(abs(df_plot$LFC), decreasing=TRUE),], 20)
-            df_plot$Label <- factor(df_plot$Label, levels = df_plot$Label[order(df_plot$LFC)])
-            
-            p <- ggplot(df_plot, aes(x=Label, y=LFC, fill=LFC>0)) +
-              geom_bar(stat="identity", width=0.7) + coord_flip() +
-              scale_fill_manual(values=c("red", "blue"), 
-                                labels=c(paste("Decreases with", var), paste("Increases with", var)), 
-                                name="Correlation") +
-              labs(title=paste("ANCOM-BC Correlation:", var, "-", rank), x="", y="Log Fold Change (per unit)") +
-              theme_minimal()
-            
-            save_plot(p, paste0("ancombc_diff_", var, "_", rank, ".png"))
-            print(p)
-            
-          } else {
-            # --- CATEGORICAL LOGIC (Groups) ---
-            
-            # 1. Prepare data columns (remove Taxon names and IDs for calculation)
-            data_cols <- beta %>% select(-Taxon, -ID)
-            
-            # 2. Determine Plot Type based on number of contrasts
-            # If there is only 1 column of results, it means 2 groups (Case vs Control).
-            # If there are multiple columns, it means >2 groups (A vs Ref, B vs Ref...).
-            
-            if (ncol(data_cols) == 1) {
-              # === CASE A: BAR PLOT (2 Groups) ===
-              
-              val_col_name <- colnames(data_cols)[1]
-              
-              df_plot <- data.frame(
-                Label = beta$Taxon,
-                LFC = data_cols[[1]]
-              )
-              
-              # Filter Top 20 by absolute change
-              if(nrow(df_plot) > 20) {
-                df_plot <- df_plot[order(abs(df_plot$LFC), decreasing = TRUE), ]
-                df_plot <- head(df_plot, 20)
-              }
-              
-              # Order factors for plotting
-              df_plot$Label <- factor(df_plot$Label, levels = df_plot$Label[order(df_plot$LFC)])
-              
-              p <- ggplot(df_plot, aes(x = Label, y = LFC, fill = LFC > 0)) +
-                geom_bar(stat = "identity", width = 0.7) +
-                coord_flip() +
-                labs(title = paste("ANCOM-BC -", var, "(", rank, ")"),
-                     subtitle = paste("Contrast:", val_col_name),
-                     x = "", y = "Log Fold Change") +
-                theme_minimal(base_size = 12) +
-                scale_fill_manual(values = c("red", "blue"), labels = c("Decrease", "Increase"), name = "Direction") +
-                theme(axis.text.y = element_text(size=10))
-              
-              save_plot(p, paste0("ancombc_bar_", var, "_", rank, ".png"))
-              print(p)
-              
-            } else {
-              # === CASE B: HEATMAP (>2 Groups) ===
-              
-              # Clean column names (remove variable prefix for cleaner heatmap)
-              # e.g., "BiomeUrban" becomes "Urban"
-              clean_cols <- data_cols
-              colnames(clean_cols) <- gsub(var, "", colnames(clean_cols))
-              
-              # Bind taxa names back
-              df_heatmap <- bind_cols(Taxon = beta$Taxon, clean_cols)
-              
-              # Filter Top 30 by variance (most variable taxa across groups)
-              if(nrow(df_heatmap) > 30) {
-                row_vars <- apply(clean_cols, 1, var)
-                top_30_idx <- head(order(row_vars, decreasing = TRUE), 30)
-                df_heatmap <- df_heatmap[top_30_idx, ]
-              }
-              
-              # Pivot to long format for ggplot
-              df_long <- df_heatmap %>%
-                pivot_longer(cols = -Taxon, names_to = "Group", values_to = "LFC")
-              
-              # Order Taxa by mean LFC for hierarchical-like visualization
-              tax_order <- df_long %>% 
-                group_by(Taxon) %>% 
-                summarise(mean = mean(LFC)) %>% 
-                arrange(mean) %>% 
-                pull(Taxon)
-              
-              df_long$Taxon <- factor(df_long$Taxon, levels = tax_order)
-              
-              # Define color limits centered at 0
-              limit <- max(abs(df_long$LFC)) * c(-1, 1)
-              
-              p <- ggplot(df_long, aes(x = Group, y = Taxon, fill = LFC)) +
-                geom_tile(color = "white") +
-                scale_fill_gradient2(low = "firebrick", mid = "white", high = "royalblue", 
-                                     midpoint = 0, limit = limit, name = "LFC") +
-                geom_text(aes(label = round(LFC, 1)), color = "black", size = 3) +
-                labs(title = paste("ANCOM-BC Heatmap:", var, "-", rank),
-                     subtitle = "Log Fold Change vs Reference Group",
-                     x = "Comparison", y = "") +
-                theme_minimal(base_size = 12) +
-                theme(axis.text.x = element_text(angle = 45, hjust = 1))
-              
-              save_plot(p, paste0("ancombc_heatmap_", var, "_", rank, ".png"))
-              print(p)
-            }
-          }
-        }
-      }, error = function(e) message(paste("ANCOM-BC Error:", e$message)))
-    }
-  }
+} else {
+  print_warning("No significant results from ANCOM-BC.")
 }
-run_ancombc(ps)
 ```
 
-# Interpretation:
+### Interpretation:
 
 Log Fold Change (Bias Corrected): Represents the magnitude of change in taxon abundance between groups after correcting for sampling bias.
 
