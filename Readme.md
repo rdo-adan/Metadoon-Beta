@@ -159,7 +159,7 @@ Metadoon/
 ├── Windows_Run.bat          # Launcher scripts for Docker (All OS)
 ├── MacOS_Run.command
 ├── Linux_Run.sh
-└── Example_Data.txt         # Links to Download a Small dataset for testing
+└── Example_Data.txt         # Links to Download a dataset for testing
 ```
 
 ### *Generated Directories (After Run)*
