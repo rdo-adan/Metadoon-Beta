@@ -39,7 +39,7 @@ The environment includes:
 *Easy start scripts for all platforms.*
 
 ### ⚠️ First-Time Setup (Permissions)
-**For macOS (`.command`) and Linux (`.sh`) users only:**
+**For macOS (`.command`) and Linux (`.sh`)/Or WSL users only:**
 Before running the scripts for the first time, you must grant execution permissions via terminal.
 1. Open a terminal inside the Metadoon folder.
 2. Run the command:
@@ -63,7 +63,7 @@ Just double-click the launcher for your OS:
 ---
 
 ## 🐍 Option 2: Manual Installation (Terminal)
-*Recommended for Linux users or advanced users who prefer manual control.*
+*Recommended for Linux/WSL users or advanced users who prefer manual control.*
 
 Follow these steps to run Metadoon directly on your system without the one-click scripts.
 
