@@ -150,7 +150,6 @@ Metadoon/
 ├── Analise.R                # Statistical analysis script (R)
 ├── generate_report.R        # Report generation script
 ├── Metadoon_Report.Rmd      # RMarkdown template
-├── Dockerfile               # Docker configuration
 ├── pipeline_params.json     # Configuration file
 ├── metadoon_env.yaml        # Conda environment definition
 ├── setup.sh                 # Native installation script (Linux)
